@@ -15,7 +15,10 @@ pub struct Arena {
 impl Arena {
     /// Allocate the whole buffer once.
     pub fn with_capacity(bytes: usize) -> Self {
-        Self { buf: vec![0u8; bytes], used: 0 }
+        Self {
+            buf: vec![0u8; bytes],
+            used: 0,
+        }
     }
 
     pub fn capacity(&self) -> usize {
@@ -43,7 +46,10 @@ impl Arena {
 
     /// Seal the arena: all allocation is done, only reads remain.
     pub fn seal(self) -> Seal {
-        Seal { buf: self.buf, used: self.used }
+        Seal {
+            buf: self.buf,
+            used: self.used,
+        }
     }
 }
 

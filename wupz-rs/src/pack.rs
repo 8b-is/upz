@@ -106,12 +106,30 @@ mod tests {
     fn sample() -> LayoutPlan {
         LayoutPlan {
             sections: vec![
-                Section { id: SectionId(0), name: ".text".into(), addr: 0x1000, len: 0x200, hash: 0xaa },
-                Section { id: SectionId(1), name: ".data".into(), addr: 0x3000, len: 0x40, hash: 0xbb },
+                Section {
+                    id: SectionId(0),
+                    name: ".text".into(),
+                    addr: 0x1000,
+                    len: 0x200,
+                    hash: 0xaa,
+                },
+                Section {
+                    id: SectionId(1),
+                    name: ".data".into(),
+                    addr: 0x3000,
+                    len: 0x40,
+                    hash: 0xbb,
+                },
             ],
             blocks: vec![
-                Block { index: 0, covers: vec![SectionId(0)] },
-                Block { index: 1, covers: vec![SectionId(0), SectionId(1)] },
+                Block {
+                    index: 0,
+                    covers: vec![SectionId(0)],
+                },
+                Block {
+                    index: 1,
+                    covers: vec![SectionId(0), SectionId(1)],
+                },
             ],
             window_size: 4096,
         }
@@ -131,7 +149,10 @@ mod tests {
         let plan = sample();
         let mut a = Arena::with_capacity(1024);
         let mut b = Arena::with_capacity(1024);
-        assert_eq!(pack_into(&plan, &mut a).unwrap(), pack_into(&plan, &mut b).unwrap());
+        assert_eq!(
+            pack_into(&plan, &mut a).unwrap(),
+            pack_into(&plan, &mut b).unwrap()
+        );
     }
 
     #[test]
@@ -141,7 +162,7 @@ mod tests {
             + (4 + 8 + 8 + 8 + 2 + 5)  // ".text"
             + (4 + 8 + 8 + 8 + 2 + 5)  // ".data"
             + (4 + 4 + 4)              // block 0
-            + (4 + 4 + 4 + 4);         // block 1
+            + (4 + 4 + 4 + 4); // block 1
         assert_eq!(plan_image_len(&plan), expected);
     }
 

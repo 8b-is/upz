@@ -36,12 +36,30 @@ static ALLOCATOR: Counting = Counting;
 fn plan() -> LayoutPlan {
     LayoutPlan {
         sections: vec![
-            Section { id: SectionId(0), name: ".text".into(), addr: 0x1000, len: 0x200, hash: 0xaa },
-            Section { id: SectionId(1), name: ".rodata".into(), addr: 0x2000, len: 0x80, hash: 0xbb },
+            Section {
+                id: SectionId(0),
+                name: ".text".into(),
+                addr: 0x1000,
+                len: 0x200,
+                hash: 0xaa,
+            },
+            Section {
+                id: SectionId(1),
+                name: ".rodata".into(),
+                addr: 0x2000,
+                len: 0x80,
+                hash: 0xbb,
+            },
         ],
         blocks: vec![
-            Block { index: 0, covers: vec![SectionId(0)] },
-            Block { index: 1, covers: vec![SectionId(1)] },
+            Block {
+                index: 0,
+                covers: vec![SectionId(0)],
+            },
+            Block {
+                index: 1,
+                covers: vec![SectionId(1)],
+            },
         ],
         window_size: 4096,
     }
@@ -58,7 +76,8 @@ fn pack_after_arena_seal_allocates_nothing() {
     let after = ALLOCS.load(Ordering::SeqCst);
 
     assert_eq!(
-        before, after,
+        before,
+        after,
         "pack_into must not allocate after the arena is sized (allocated {} times)",
         after - before
     );

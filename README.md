@@ -7,6 +7,7 @@ output is a packed executable *by construction*, because the linker already
 knows the layout it is about to write. Zero-alloc hot paths, SIMD kernels,
 Zig ↔ Rust.
 
+> **Landing:** [wupz.vaked.dev](https://wupz.vaked.dev) — the spatial zen field.
 > **Status: experimental / research.** Nothing here is a production linker yet.
 > This repo is the spec, the scaffold, and the receipts as they land.
 

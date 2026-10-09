@@ -88,9 +88,16 @@ mod tests {
         let blocks = hashes
             .iter()
             .enumerate()
-            .map(|(i, (id, _, _))| Block { index: i as u32, covers: vec![SectionId(*id)] })
+            .map(|(i, (id, _, _))| Block {
+                index: i as u32,
+                covers: vec![SectionId(*id)],
+            })
             .collect();
-        LayoutPlan { sections, blocks, window_size: 4096 }
+        LayoutPlan {
+            sections,
+            blocks,
+            window_size: 4096,
+        }
     }
 
     #[test]

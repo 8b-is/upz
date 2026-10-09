@@ -40,13 +40,21 @@ pub struct LayoutPlan {
 
 impl Default for LayoutPlan {
     fn default() -> Self {
-        Self { sections: Vec::new(), blocks: Vec::new(), window_size: 4096 }
+        Self {
+            sections: Vec::new(),
+            blocks: Vec::new(),
+            window_size: 4096,
+        }
     }
 }
 
 impl LayoutPlan {
     pub fn new(window_size: u64) -> Self {
-        Self { sections: Vec::new(), blocks: Vec::new(), window_size: window_size.max(1) }
+        Self {
+            sections: Vec::new(),
+            blocks: Vec::new(),
+            window_size: window_size.max(1),
+        }
     }
 
     /// Total bytes the plan resolves.
@@ -107,12 +115,30 @@ mod tests {
     fn sample() -> LayoutPlan {
         LayoutPlan {
             sections: vec![
-                Section { id: SectionId(0), name: ".text".into(), addr: 0x1000, len: 0x200, hash: 0xaa },
-                Section { id: SectionId(1), name: ".data".into(), addr: 0x3000, len: 0x40, hash: 0xbb },
+                Section {
+                    id: SectionId(0),
+                    name: ".text".into(),
+                    addr: 0x1000,
+                    len: 0x200,
+                    hash: 0xaa,
+                },
+                Section {
+                    id: SectionId(1),
+                    name: ".data".into(),
+                    addr: 0x3000,
+                    len: 0x40,
+                    hash: 0xbb,
+                },
             ],
             blocks: vec![
-                Block { index: 0, covers: vec![SectionId(0)] },
-                Block { index: 1, covers: vec![SectionId(1)] },
+                Block {
+                    index: 0,
+                    covers: vec![SectionId(0)],
+                },
+                Block {
+                    index: 1,
+                    covers: vec![SectionId(1)],
+                },
             ],
             window_size: 4096,
         }
