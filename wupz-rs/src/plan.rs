@@ -1,0 +1,151 @@
+//! The layout plan — the artifact the linker emits and the packer consumes.
+
+/// A section's identity. Stable across rebuilds: it names a logical input, not
+/// a byte offset.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+pub struct SectionId(pub u32);
+
+/// One resolved section: where it landed and the strong hash of its bytes.
+///
+/// The hash is over the *resolved* content (post-relocation), so a plan can be
+/// diffed without re-reading the object files.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Section {
+    pub id: SectionId,
+    pub name: String,
+    pub addr: u64,
+    pub len: u64,
+    pub hash: u64,
+}
+
+/// One packed block: the sections whose bytes it covers.
+///
+/// The covering set is what makes incremental repack possible — a block is
+/// invalidated iff its set intersects the changed set.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Block {
+    pub index: u32,
+    pub covers: Vec<SectionId>,
+}
+
+/// The whole plan. `window_size` is the address-independent packing window
+/// (see `docs/DESIGN.md` §4): layout is packed in fixed windows so a shifted
+/// section perturbs one window, not the tail.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct LayoutPlan {
+    pub sections: Vec<Section>,
+    pub blocks: Vec<Block>,
+    pub window_size: u64,
+}
+
+impl Default for LayoutPlan {
+    fn default() -> Self {
+        Self { sections: Vec::new(), blocks: Vec::new(), window_size: 4096 }
+    }
+}
+
+impl LayoutPlan {
+    pub fn new(window_size: u64) -> Self {
+        Self { sections: Vec::new(), blocks: Vec::new(), window_size: window_size.max(1) }
+    }
+
+    /// Total bytes the plan resolves.
+    pub fn total_bytes(&self) -> u64 {
+        self.sections.iter().map(|s| s.len).sum()
+    }
+
+    pub fn section(&self, id: SectionId) -> Option<&Section> {
+        self.sections.iter().find(|s| s.id == id)
+    }
+
+    pub fn block(&self, index: u32) -> Option<&Block> {
+        self.blocks.iter().find(|b| b.index == index)
+    }
+
+    /// The first block covering `id`, if any.
+    pub fn block_for(&self, id: SectionId) -> Option<&Block> {
+        self.blocks.iter().find(|b| b.covers.contains(&id))
+    }
+
+    /// Address-independent window index for an address.
+    pub fn window_of(&self, addr: u64) -> u32 {
+        (addr / self.window_size.max(1)) as u32
+    }
+
+    /// Fold the plan into a deterministic 64-bit digest (names + addrs + hashes).
+    /// Deterministic on purpose: the plan image is reproducible byte for byte.
+    pub fn digest(&self) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325; // FNV-1a offset basis
+        let mut mix = |x: u64| {
+            h ^= x;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        };
+        mix(self.window_size);
+        for s in &self.sections {
+            mix(s.id.0 as u64);
+            mix(s.addr);
+            mix(s.len);
+            mix(s.hash);
+            for b in s.name.as_bytes() {
+                mix(*b as u64);
+            }
+        }
+        for b in &self.blocks {
+            mix(b.index as u64);
+            for c in &b.covers {
+                mix(c.0 as u64);
+            }
+        }
+        h
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> LayoutPlan {
+        LayoutPlan {
+            sections: vec![
+                Section { id: SectionId(0), name: ".text".into(), addr: 0x1000, len: 0x200, hash: 0xaa },
+                Section { id: SectionId(1), name: ".data".into(), addr: 0x3000, len: 0x40, hash: 0xbb },
+            ],
+            blocks: vec![
+                Block { index: 0, covers: vec![SectionId(0)] },
+                Block { index: 1, covers: vec![SectionId(1)] },
+            ],
+            window_size: 4096,
+        }
+    }
+
+    #[test]
+    fn total_bytes_sums_sections() {
+        assert_eq!(sample().total_bytes(), 0x240);
+    }
+
+    #[test]
+    fn window_is_address_divided() {
+        let p = sample();
+        assert_eq!(p.window_of(0x1000), 1);
+        assert_eq!(p.window_of(0x3000), 3);
+    }
+
+    #[test]
+    fn digest_is_deterministic() {
+        assert_eq!(sample().digest(), sample().digest());
+    }
+
+    #[test]
+    fn digest_changes_with_content() {
+        let mut other = sample();
+        other.sections[0].hash ^= 0xff;
+        assert_ne!(sample().digest(), other.digest());
+    }
+
+    #[test]
+    fn block_for_finds_the_cover() {
+        let p = sample();
+        assert_eq!(p.block_for(SectionId(1)).map(|b| b.index), Some(1));
+        assert!(p.block_for(SectionId(9)).is_none());
+    }
+}

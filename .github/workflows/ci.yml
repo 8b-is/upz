@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.16.0
+
+      - name: rust core
+        run: cargo test --quiet
+
+      - name: zig kernels (differential)
+        run: zig test wupz-zig/src/kernels.zig
+
+      - name: zig staticlib + C ABI smoke test
+        run: |
+          mkdir -p build
+          zig build-lib wupz-zig/src/kernels.zig -O ReleaseFast -femit-bin=build/libwupz_zig.a
+          zig cc tests/abi_smoke.c -Iinclude build/libwupz_zig.a -o build/abi_smoke
+          ./build/abi_smoke

@@ -56,6 +56,31 @@ Admins: **poe** (Paul Showalter) · **standardgalactic** (Cogito Ergo Sum) ·
 - [`docs/DESIGN.md`](docs/DESIGN.md) — the technical plan and the non-goals.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — phases, in order, each with a receipt.
 
+## what runs today
+
+The scaffold is real code, not slides — and both toolchains are exercised:
+
+```
+include/wupz_abi.h     the frozen C ABI (one header, versioned)
+wupz-rs/               Rust core: layout plan · incremental rebuild rule ·
+                       pre-sized arena · deterministic plan image
+wupz-zig/src/kernels.zig   Zig SIMD kernels: xorFold · byteDiff · popcount,
+                       each with a scalar reference + seeded differential tests
+tests/abi_smoke.c      links the Zig staticlib through the C header
+scripts/ci.sh          runs the lot
+```
+
+```bash
+scripts/ci.sh
+#   rust core            20 tests ok
+#   zig kernels           5 differential tests ok
+#   C ABI smoke test      abi 1 ok · fold=0x… · popcount=… · diff=…
+```
+
+The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
+installs a counting global allocator and fails if `pack_into` allocates after the
+arena is sized.
+
 ## license
 
 AGPL-3.0-only for wupz's own code. Third-party terms in
