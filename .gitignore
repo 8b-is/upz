@@ -1,0 +1,13 @@
+# build artifacts
+zig-out/
+.zig-cache/
+target/
+build/
+dist/
+
+# editors / os
+.DS_Store
+*.swp
+
+# local scratch
+/scratch/
