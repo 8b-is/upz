@@ -9,6 +9,7 @@
 //! compressor yet — those are P1/P3 in `docs/ROADMAP.md`.
 
 pub mod arena;
+pub mod fold;
 pub mod incremental;
 pub mod pack;
 pub mod plan;

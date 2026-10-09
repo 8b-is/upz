@@ -1,5 +1,12 @@
 # wupz
 
+[![ci](https://github.com/8b-is/wupz/actions/workflows/ci.yml/badge.svg)](https://github.com/8b-is/wupz/actions/workflows/ci.yml)
+![license](https://img.shields.io/badge/license-AGPL--3.0--only-blue)
+![rust](https://img.shields.io/badge/rust-stable-000?logo=rust)
+![zig](https://img.shields.io/badge/zig-0.16-F7A41D?logo=zig)
+![ABI](https://img.shields.io/badge/ABI-1-62e6c9)
+![version](https://img.shields.io/badge/version-0.2.0-9dff5c)
+
 **wupz** = **w**(ild) + **UPX** + **z**(ig) — *kompressed*.
 
 An experimental **incremental ultra-fast linker that also compresses**: the
@@ -73,10 +80,23 @@ scripts/ci.sh          runs the lot
 
 ```bash
 scripts/ci.sh
-#   rust core            20 tests ok
+#   rust core            23 tests ok (20 + the zig-parity seam)
 #   zig kernels           5 differential tests ok
-#   C ABI smoke test      abi 1 ok · fold=0x… · popcount=… · diff=…
+#   C ABI parity test     abi 1 ok (header == rust == zig)
 ```
+
+**The seam is exercised, not assumed.** `wupz-rs/build.rs` compiles
+`wupz-zig/src/kernels.zig` and links it, so `fold::xor_fold` runs the Zig SIMD
+kernel; `tests/zig_parity.rs` asserts it agrees with the Rust scalar reference on
+every length from 0 to 1088 and reports which path is live:
+
+```
+wupz fold backend = zig-simd      # WUPZ_NO_ZIG=1 → rust-scalar
+```
+
+Without zig the crate still builds and tests — the fallback keeps contributors
+unblocked. (On macOS the archive is written with `libtool`; zig's own archive
+members are not 8-byte aligned and Apple's `ld` rejects them.)
 
 The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
 installs a counting global allocator and fails if `pack_into` allocates after the

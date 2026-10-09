@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+*.rs      text diff=rust
+*.zig     text
+*.c       text diff=c
+*.h       text diff=c
+*.md      text
+Cargo.lock text
+
+*.a       binary
+*.png     binary

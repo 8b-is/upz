@@ -1,0 +1,15 @@
+# CODEOWNERS — who answers for what.
+#
+# The seam is the thing: a change to the C header or the kernels touches both
+# toolchains, so those paths need the crew, not a single hand.
+
+# default
+*                       @poe @standardgalactic @8bit-wraith
+
+# the frozen boundary — any change bumps WUPZ_ABI_VERSION
+/include/               @poe @standardgalactic @8bit-wraith
+/wupz-zig/              @poe @8bit-wraith
+/wupz-rs/               @standardgalactic @poe
+
+# infra
+/.github/               @poe

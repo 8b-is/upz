@@ -15,9 +15,10 @@ test, or a reviewable artifact). No phase is "done" without one.
 ## receipts so far (`scripts/ci.sh`)
 
 ```
-rust core (plan · incremental · arena · pack-image)  20 tests ok
+rust core (plan · incremental · arena · pack-image)  23 tests ok
 zig kernels (differential: vectorized vs scalar)      5 tests ok
 static libs + C ABI parity test                       abi 1 ok (header == rust == zig)
+zig↔rust fold seam (0..=1088)                         backend = zig-simd · fallback = rust-scalar
 ```
 
 The zero-alloc invariant is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
