@@ -17,7 +17,7 @@ test, or a reviewable artifact). No phase is "done" without one.
 ```
 rust core (plan · incremental · arena · pack-image)  20 tests ok
 zig kernels (differential: vectorized vs scalar)      5 tests ok
-zig staticlib + C ABI smoke test                      abi 1 ok · fold=0x… · popcount=… · diff=…
+static libs + C ABI parity test                       abi 1 ok (header == rust == zig)
 ```
 
 The zero-alloc invariant is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`

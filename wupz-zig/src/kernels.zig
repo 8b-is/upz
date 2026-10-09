@@ -115,6 +115,12 @@ export fn wupz_popcount(ptr: [*]const u8, len: usize) u64 {
     return popcount(ptr[0..len]);
 }
 
+/// The ABI version this Zig build speaks. Must equal the Rust `wupz_abi_version()`
+/// and the `WUPZ_ABI_VERSION` macro — the C smoke test asserts all three agree.
+export fn wupz_zig_abi_version() u32 {
+    return 1;
+}
+
 // ── differential tests: vectorized == scalar, seeded ────────────────────────
 
 fn fill(buf: []u8, seed: u64) void {

@@ -17,6 +17,13 @@ extern "C" {
 
 #define WUPZ_ABI_VERSION 1u
 
+/* wupz-rs: the ABI version the Rust core speaks. */
+uint32_t wupz_abi_version(void);
+
+/* wupz-zig: the ABI version the Zig kernels speak. Both must equal
+ * WUPZ_ABI_VERSION — tests/abi_smoke.c asserts it at link time. */
+uint32_t wupz_zig_abi_version(void);
+
 /* wupz-zig: integrity fold. XOR of the little-endian u64 words, then the
  * trailing bytes. Allocation-free, order-stable, and its own witness: fold a
  * valid frame and you get zero if it was built as an XOR seal. */
