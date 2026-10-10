@@ -99,6 +99,9 @@ Without zig the crate still builds and tests — the fallback keeps contributors
 unblocked. (On macOS the archive is written with `libtool`; zig's own archive
 members are not 8-byte aligned and Apple's `ld` rejects them.)
 
+The plan-image writer rejects names or counts that exceed its wire-format fields
+before consuming arena space; oversized names cannot silently wrap their length.
+
 The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
 installs a counting global allocator and fails if `pack_into` allocates after the
 arena is sized.
