@@ -26,6 +26,8 @@ pub fn xor_fold_scalar(bytes: &[u8]) -> u64 {
 mod zig {
     unsafe extern "C" {
         pub fn wupz_xor_fold(ptr: *const u8, len: usize) -> u64;
+        pub fn wupz_byte_diff(a: *const u8, b: *const u8, len: usize) -> u64;
+        pub fn wupz_popcount(ptr: *const u8, len: usize) -> u64;
     }
 }
 
@@ -52,4 +54,47 @@ pub const fn backend() -> &'static str {
 #[cfg(not(have_zig))]
 pub const fn backend() -> &'static str {
     "rust-scalar"
+}
+
+// ── byteDiff / popcount: the same seam, the other two kernels ───────────────
+
+/// Scalar reference: number of differing bytes between two spans.
+pub fn byte_diff_scalar(a: &[u8], b: &[u8]) -> u64 {
+    let n = a.len().min(b.len());
+    let mut count = 0u64;
+    for i in 0..n {
+        if a[i] != b[i] {
+            count += 1;
+        }
+    }
+    count
+}
+
+/// Population count over a span — the scalar reference.
+pub fn popcount_scalar(bytes: &[u8]) -> u64 {
+    bytes.iter().map(|b| b.count_ones() as u64).sum()
+}
+
+/// Differing bytes between two spans (the delta size a repack would touch).
+#[cfg(have_zig)]
+pub fn byte_diff(a: &[u8], b: &[u8]) -> u64 {
+    // SAFETY: both pointers are valid for `n` bytes, and `n` is the min length.
+    unsafe { zig::wupz_byte_diff(a.as_ptr(), b.as_ptr(), a.len().min(b.len())) }
+}
+
+#[cfg(not(have_zig))]
+pub fn byte_diff(a: &[u8], b: &[u8]) -> u64 {
+    byte_diff_scalar(a, b)
+}
+
+/// Population count over a span (density).
+#[cfg(have_zig)]
+pub fn popcount(bytes: &[u8]) -> u64 {
+    // SAFETY: pointer and length come from the same slice.
+    unsafe { zig::wupz_popcount(bytes.as_ptr(), bytes.len()) }
+}
+
+#[cfg(not(have_zig))]
+pub fn popcount(bytes: &[u8]) -> u64 {
+    popcount_scalar(bytes)
 }

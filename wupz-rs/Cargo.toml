@@ -1,6 +1,6 @@
 [package]
 name = "wupz-core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 description = "wupz core — the incremental layout plan, the arena, and pack-in-pass (scaffold)"

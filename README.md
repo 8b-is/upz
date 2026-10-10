@@ -63,6 +63,7 @@ Admins: **poe** (Paul Showalter) · **standardgalactic** (Cogito Ergo Sum) ·
 
 - [`docs/DESIGN.md`](docs/DESIGN.md) — the technical plan and the non-goals.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — phases, in order, each with a receipt.
+- [`BENCHMARKS.md`](BENCHMARKS.md) — the measured top 5 (and the honest losses).
 
 ## what runs today
 
@@ -101,6 +102,24 @@ members are not 8-byte aligned and Apple's `ld` rejects them.)
 The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
 installs a counting global allocator and fails if `pack_into` allocates after the
 arena is sized.
+
+## benchmarks
+
+Measured, not asserted — `scripts/bench.sh` runs both backends over a 64 MiB
+working set (median of 9, black-boxed):
+
+| kernel | zig-simd | rust-scalar | verdict |
+|---|---|---|---|
+| `byte_diff` | **18.44 GiB/s** | 5.70 GiB/s | **3.2× — the seam wins** |
+| `xor_fold` | 45.65 GiB/s | **49.72 GiB/s** | scalar wins; honest loss |
+| `popcount` | 14.24 GiB/s | 14.35 GiB/s | tie |
+
+Both backends produce the same sink — the numbers are comparable. Full method,
+findings and the P0 `upx` bar: [`BENCHMARKS.md`](BENCHMARKS.md).
+
+The nightly lane ([`nightly-zig.yml`](.github/workflows/nightly-zig.yml)) runs the
+kernels on **Zig master** — `0.18.0-dev.131` passes all five differential tests
+with zero source changes.
 
 ## license
 
