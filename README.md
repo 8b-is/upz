@@ -99,6 +99,10 @@ Without zig the crate still builds and tests — the fallback keeps contributors
 unblocked. (On macOS the archive is written with `libtool`; zig's own archive
 members are not 8-byte aligned and Apple's `ld` rejects them.)
 
+The benchmark comparison requires both actual backends and matching result
+sinks; it fails if the Zig run falls back to scalar. See [BENCHMARKS.md](BENCHMARKS.md)
+for the method and individual-backend commands.
+
 The plan-image writer rejects names or counts that exceed its wire-format fields
 before consuming arena space; oversized names cannot silently wrap their length.
 

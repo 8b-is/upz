@@ -4,6 +4,12 @@ All notable changes to wupz are documented here.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- Benchmark comparisons reject unexpected backends and missing, duplicate or
+  unequal result sinks instead of treating two fallback runs as a Zig comparison.
+
 ## [0.3.0] — 2026-10-10
 
 ### Added

@@ -8,6 +8,9 @@ step() { printf '\n== %s ==\n' "$1"; }
 step "rust core (plan · incremental · arena · pack-image)"
 cargo test --quiet
 
+step "benchmark comparison contract (synthetic command outputs)"
+bash tests/bench_smoke.sh
+
 step "zig kernels (differential: vectorized vs scalar, seeded)"
 zig test wupz-zig/src/kernels.zig
 
