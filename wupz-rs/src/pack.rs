@@ -67,8 +67,18 @@ fn put_bytes(out: &mut [u8], at: &mut usize, v: &[u8]) {
 }
 
 /// Write the plan image into `arena`. Returns `None` if the arena is too small
-/// (the arena never grows — a silent grow would be an allocation).
+/// (the arena never grows — a silent grow would be an allocation), or if a
+/// name/count cannot fit the wire format. Invalid plans leave the arena unchanged.
 pub fn pack_into<'a>(plan: &LayoutPlan, arena: &'a mut Arena) -> Option<&'a [u8]> {
+    // Measure twice, pack once: reject narrowing before consuming arena space.
+    u32::try_from(plan.sections.len()).ok()?;
+    u32::try_from(plan.blocks.len()).ok()?;
+    for section in &plan.sections {
+        u16::try_from(section.name.len()).ok()?;
+    }
+    for block in &plan.blocks {
+        u32::try_from(block.covers.len()).ok()?;
+    }
     let len = plan_image_len(plan);
     let out = arena.alloc(len)?;
     let mut at = 0usize;
@@ -164,6 +174,29 @@ mod tests {
             + (4 + 4 + 4)              // block 0
             + (4 + 4 + 4 + 4); // block 1
         assert_eq!(plan_image_len(&plan), expected);
+    }
+
+    #[test]
+    fn oversized_name_is_rejected_without_consuming_arena() {
+        let mut plan = sample();
+        plan.sections[0].name = "x".repeat(usize::from(u16::MAX) + 1);
+        let mut arena = Arena::with_capacity(plan_image_len(&plan));
+        assert!(pack_into(&plan, &mut arena).is_none());
+        assert_eq!(arena.used(), 0);
+    }
+
+    #[test]
+    fn maximum_name_length_is_encoded_exactly() {
+        let mut plan = sample();
+        plan.sections[0].name = "x".repeat(usize::from(u16::MAX));
+        let mut arena = Arena::with_capacity(plan_image_len(&plan));
+        let image = pack_into(&plan, &mut arena).unwrap();
+        let offset = HEADER_LEN + 4 + 8 + 8 + 8;
+        assert_eq!(&image[offset..offset + 2], &u16::MAX.to_le_bytes());
+        assert_eq!(
+            &image[offset + 2..offset + 2 + usize::from(u16::MAX)],
+            plan.sections[0].name.as_bytes()
+        );
     }
 
     #[test]
