@@ -6,15 +6,23 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mlugg/setup-zig@v1
-        with:
-          version: 0.16.0
+      - name: Zig bootstrap failure boundaries
+        run: bash tests/ci_zig_install.sh
+
+      - name: Install official Zig release
+        run: bash scripts/install-ci-zig.sh
 
       - name: rust core
         run: cargo test --quiet

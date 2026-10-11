@@ -99,6 +99,13 @@ Without zig the crate still builds and tests — the fallback keeps contributors
 unblocked. (On macOS the archive is written with `libtool`; zig's own archive
 members are not 8-byte aligned and Apple's `ld` rejects them.)
 
+The regular Linux CI lane installs Zig 0.16.0 directly from the official release
+archive using `scripts/install-ci-zig.sh`. Its SHA-256 is pinned from the
+[official download index](https://ziglang.org/download/index.json); setup verifies
+the archive before extraction and the compiler version before adding it to PATH.
+`bash tests/ci_zig_install.sh` checks failure boundaries without downloading or
+executing a compiler. The separate nightly master lane is unchanged.
+
 The plan-image writer rejects names or counts that exceed its wire-format fields
 before consuming arena space; oversized names cannot silently wrap their length.
 

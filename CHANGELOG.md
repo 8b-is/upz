@@ -4,6 +4,12 @@ All notable changes to wupz are documented here.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- Regular CI installs the official Zig 0.16.0 archive with a pinned SHA-256,
+  avoiding a disallowed third-party setup action while preserving the test gates.
+
 ## [0.3.0] — 2026-10-10
 
 ### Added
