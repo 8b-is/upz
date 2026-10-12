@@ -50,6 +50,15 @@ Three rules, and they are the whole method:
 scripts/bench.sh          # both backends, one table
 ```
 
+The comparison script requires the first run to report `zig-simd` and the
+second `rust-scalar`, then checks that their result sinks match before printing
+the comparison. Missing Zig, a build fallback, an inherited `WUPZ_NO_ZIG`
+opt-out, or unequal results makes the comparison fail. Individual scalar runs
+remain available through `WUPZ_NO_ZIG=1 cargo run --release --bin wupz-bench`.
+These controls check backend identity and output agreement; they do not prove
+statistical significance, remove run-order effects, or validate the numbers
+recorded above on a different machine.
+
 ## Findings
 
 > *Is the Zig seam actually faster?*
