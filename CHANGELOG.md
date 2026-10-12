@@ -16,6 +16,9 @@ project adheres to [Semantic Versioning](https://semver.org).
   `u32` boundary (16 TiB for 4096-byte windows).
 - Regular CI installs the official Zig 0.16.0 archive with a pinned SHA-256,
   avoiding a disallowed third-party setup action while preserving the test gates.
+- Nightly CI resolves Zig master from the official index and verifies its
+  archive and reported version without a third-party setup action. The master
+  kernel and Rust seam checks remain; both workflows exercise setup failures.
 
 ### Changed
 - Prepare crate version `0.4.0`: `LayoutPlan::window_of` now returns `u64` and

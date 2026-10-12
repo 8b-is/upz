@@ -109,7 +109,16 @@ archive using `scripts/install-ci-zig.sh`. Its SHA-256 is pinned from the
 [official download index](https://ziglang.org/download/index.json); setup verifies
 the archive before extraction and the compiler version before adding it to PATH.
 `bash tests/ci_zig_install.sh` checks failure boundaries without downloading or
-executing a compiler. The separate nightly master lane is unchanged.
+executing a compiler.
+
+The nightly lane uses `scripts/install-nightly-zig.sh` to resolve one master
+snapshot from that same official index. It checks the expected Linux archive
+URL, byte count and SHA-256 before extraction, then verifies the compiler
+version before adding it to PATH. The resolved version and checksum appear in
+the job log. Master intentionally moves: the index checksum is not an
+independent immutable pin like the regular CI release checksum.
+`bash tests/nightly_zig_install.sh` covers malformed metadata and failed setup
+without downloading or executing a compiler; regular CI runs these fixtures too.
 
 The benchmark comparison requires both actual backends and matching result
 sinks; it fails if the Zig run falls back to scalar. See [BENCHMARKS.md](BENCHMARKS.md)
