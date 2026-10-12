@@ -104,6 +104,13 @@ and archiver produce host objects, so they are used only when `HOST == TARGET`.
 Target-aware Zig linking is not implemented yet. Rust's target libraries and a
 compatible linker are still required for a complete cross build.
 
+The regular Linux CI lane installs Zig 0.16.0 directly from the official release
+archive using `scripts/install-ci-zig.sh`. Its SHA-256 is pinned from the
+[official download index](https://ziglang.org/download/index.json); setup verifies
+the archive before extraction and the compiler version before adding it to PATH.
+`bash tests/ci_zig_install.sh` checks failure boundaries without downloading or
+executing a compiler. The separate nightly master lane is unchanged.
+
 The benchmark comparison requires both actual backends and matching result
 sinks; it fails if the Zig run falls back to scalar. See [BENCHMARKS.md](BENCHMARKS.md)
 for the method and individual-backend commands.

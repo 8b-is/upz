@@ -14,6 +14,8 @@ project adheres to [Semantic Versioning](https://semver.org).
 - Empty sections no longer claim an address window.
 - Window indices retain all 64 bits instead of wrapping or disappearing at the
   `u32` boundary (16 TiB for 4096-byte windows).
+- Regular CI installs the official Zig 0.16.0 archive with a pinned SHA-256,
+  avoiding a disallowed third-party setup action while preserving the test gates.
 
 ### Changed
 - Prepare crate version `0.4.0`: `LayoutPlan::window_of` now returns `u64` and
