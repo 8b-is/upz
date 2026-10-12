@@ -19,7 +19,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Zig bootstrap failure boundaries
-        run: bash tests/ci_zig_install.sh
+        run: |
+          bash tests/ci_zig_install.sh
+          bash tests/nightly_zig_install.sh
 
       - name: Install official Zig release
         run: bash scripts/install-ci-zig.sh

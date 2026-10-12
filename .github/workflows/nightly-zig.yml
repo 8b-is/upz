@@ -8,15 +8,23 @@ on:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   master:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mlugg/setup-zig@v1
-        with:
-          version: master
+      - name: Nightly Zig bootstrap failure boundaries
+        run: bash tests/nightly_zig_install.sh
+
+      - name: Install official Zig master snapshot
+        run: bash scripts/install-nightly-zig.sh
 
       - name: zig version (master)
         run: zig version
