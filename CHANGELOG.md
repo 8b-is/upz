@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Fixed
+- Cross-target Cargo builds select the Rust scalar backend instead of linking
+  a Zig object compiled for the build host. Native Zig builds are unchanged.
 - Benchmark comparisons reject unexpected backends and missing, duplicate or
   unequal result sinks instead of treating two fallback runs as a Zig comparison.
 

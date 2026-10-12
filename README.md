@@ -99,6 +99,11 @@ Without zig the crate still builds and tests — the fallback keeps contributors
 unblocked. (On macOS the archive is written with `libtool`; zig's own archive
 members are not 8-byte aligned and Apple's `ld` rejects them.)
 
+Cross-compiling with Cargo also selects `rust-scalar`: the current Zig build
+and archiver produce host objects, so they are used only when `HOST == TARGET`.
+Target-aware Zig linking is not implemented yet. Rust's target libraries and a
+compatible linker are still required for a complete cross build.
+
 The benchmark comparison requires both actual backends and matching result
 sinks; it fails if the Zig run falls back to scalar. See [BENCHMARKS.md](BENCHMARKS.md)
 for the method and individual-backend commands.
