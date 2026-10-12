@@ -25,6 +25,18 @@ fn main() {
         return; // explicit opt-out: no warning, no cfg
     }
 
+    // This Zig invocation and archiver build for the host. Linking that object
+    // into a different Cargo target is invalid, even when only the CPU differs.
+    // Keep cross builds on the scalar path until target-aware Zig linking exists.
+    let host = std::env::var("HOST").expect("HOST is set by cargo");
+    let target = std::env::var("TARGET").expect("TARGET is set by cargo");
+    if host != target {
+        println!(
+            "cargo:warning=wupz: cross-compiling {host} -> {target} — using the Rust scalar fold"
+        );
+        return;
+    }
+
     let zig_present = Command::new("zig")
         .arg("version")
         .output()

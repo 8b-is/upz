@@ -4,6 +4,12 @@ All notable changes to wupz are documented here.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- Cross-target Cargo builds select the Rust scalar backend instead of linking
+  a Zig object compiled for the build host. Native Zig builds are unchanged.
+
 ## [0.3.0] — 2026-10-10
 
 ### Added
