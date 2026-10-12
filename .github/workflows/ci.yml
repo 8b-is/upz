@@ -27,6 +27,9 @@ jobs:
       - name: rust core
         run: cargo test --quiet
 
+      - name: benchmark comparison contract
+        run: bash tests/bench_smoke.sh
+
       - name: zig kernels (differential)
         run: zig test wupz-zig/src/kernels.zig
 

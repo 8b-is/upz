@@ -5,7 +5,7 @@
 ![rust](https://img.shields.io/badge/rust-stable-000?logo=rust)
 ![zig](https://img.shields.io/badge/zig-0.16-F7A41D?logo=zig)
 ![ABI](https://img.shields.io/badge/ABI-1-62e6c9)
-![version](https://img.shields.io/badge/version-0.2.0-9dff5c)
+![version](https://img.shields.io/badge/version-0.4.0-9dff5c)
 
 **wupz** = **w**(ild) + **UPX** + **z**(ig) — *kompressed*.
 
@@ -99,6 +99,11 @@ Without zig the crate still builds and tests — the fallback keeps contributors
 unblocked. (On macOS the archive is written with `libtool`; zig's own archive
 members are not 8-byte aligned and Apple's `ld` rejects them.)
 
+Cross-compiling with Cargo also selects `rust-scalar`: the current Zig build
+and archiver produce host objects, so they are used only when `HOST == TARGET`.
+Target-aware Zig linking is not implemented yet. Rust's target libraries and a
+compatible linker are still required for a complete cross build.
+
 The regular Linux CI lane installs Zig 0.16.0 directly from the official release
 archive using `scripts/install-ci-zig.sh`. Its SHA-256 is pinned from the
 [official download index](https://ziglang.org/download/index.json); setup verifies
@@ -106,8 +111,21 @@ the archive before extraction and the compiler version before adding it to PATH.
 `bash tests/ci_zig_install.sh` checks failure boundaries without downloading or
 executing a compiler. The separate nightly master lane is unchanged.
 
+The benchmark comparison requires both actual backends and matching result
+sinks; it fails if the Zig run falls back to scalar. See [BENCHMARKS.md](BENCHMARKS.md)
+for the method and individual-backend commands.
+
 The plan-image writer rejects names or counts that exceed its wire-format fields
 before consuming arena space; oversized names cannot silently wrap their length.
+
+The incremental window helpers skip empty sections and keep the full `u64`
+window index, including addresses above 16 TiB with 4096-byte windows. In the
+0.4.0 Rust API, `LayoutPlan::window_of` returns `u64` and `windows_touched`
+returns `Vec<u64>`; callers with explicit `u32` result types must update them.
+The C ABI (version 1), block indices, and serialized plan format are unchanged.
+Touched windows are sorted and unique. Spans extending past `u64::MAX` are
+clipped there; enumeration still uses memory proportional to the number of
+touched windows and is not a bounded validator for untrusted plans.
 
 The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
 installs a counting global allocator and fails if `pack_into` allocates after the

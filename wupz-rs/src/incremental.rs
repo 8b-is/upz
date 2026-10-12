@@ -43,13 +43,18 @@ pub fn blocks_to_repack(plan: &LayoutPlan, changed: &[SectionId]) -> Vec<u32> {
 
 /// The address-independent windows a change perturbs. A section that spans a
 /// window boundary touches every window it overlaps — that is the whole point of
-/// fixed windows: the blast radius stays local.
-pub fn windows_touched(plan: &LayoutPlan, changed: &[SectionId]) -> Vec<u32> {
+/// fixed windows: the blast radius stays local. Empty sections touch no windows;
+/// overflowing end addresses are clipped to `u64::MAX`. Results are sorted and
+/// unique. Memory and runtime grow with the number of windows touched.
+pub fn windows_touched(plan: &LayoutPlan, changed: &[SectionId]) -> Vec<u64> {
     let mut windows = BTreeSet::new();
     for id in changed {
         if let Some(s) = plan.section(*id) {
+            if s.len == 0 {
+                continue;
+            }
             let first = plan.window_of(s.addr);
-            let last_addr = s.addr.saturating_add(s.len.saturating_sub(1));
+            let last_addr = s.addr.saturating_add(s.len - 1);
             let last = plan.window_of(last_addr);
             for w in first..=last {
                 windows.insert(w);

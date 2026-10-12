@@ -7,8 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Fixed
+- Cross-target Cargo builds select the Rust scalar backend instead of linking
+  a Zig object compiled for the build host. Native Zig builds are unchanged.
+- Benchmark comparisons reject unexpected backends and missing, duplicate or
+  unequal result sinks instead of treating two fallback runs as a Zig comparison.
+- Empty sections no longer claim an address window.
+- Window indices retain all 64 bits instead of wrapping or disappearing at the
+  `u32` boundary (16 TiB for 4096-byte windows).
 - Regular CI installs the official Zig 0.16.0 archive with a pinned SHA-256,
   avoiding a disallowed third-party setup action while preserving the test gates.
+
+### Changed
+- Prepare crate version `0.4.0`: `LayoutPlan::window_of` now returns `u64` and
+  `incremental::windows_touched` returns `Vec<u64>`. Callers with explicit `u32`
+  result types must migrate. The C ABI, block indices and plan image are unchanged.
 
 ## [0.3.0] — 2026-10-10
 
