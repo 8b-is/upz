@@ -75,9 +75,10 @@ impl LayoutPlan {
         self.blocks.iter().find(|b| b.covers.contains(&id))
     }
 
-    /// Address-independent window index for an address.
-    pub fn window_of(&self, addr: u64) -> u32 {
-        (addr / self.window_size.max(1)) as u32
+    /// Address-independent window index for an address, without narrowing the
+    /// address space. A zero window size is treated as one byte.
+    pub fn window_of(&self, addr: u64) -> u64 {
+        addr / self.window_size.max(1)
     }
 
     /// Fold the plan into a deterministic 64-bit digest (names + addrs + hashes).

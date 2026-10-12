@@ -5,7 +5,7 @@
 ![rust](https://img.shields.io/badge/rust-stable-000?logo=rust)
 ![zig](https://img.shields.io/badge/zig-0.16-F7A41D?logo=zig)
 ![ABI](https://img.shields.io/badge/ABI-1-62e6c9)
-![version](https://img.shields.io/badge/version-0.2.0-9dff5c)
+![version](https://img.shields.io/badge/version-0.4.0-9dff5c)
 
 **wupz** = **w**(ild) + **UPX** + **z**(ig) — *kompressed*.
 
@@ -110,6 +110,15 @@ for the method and individual-backend commands.
 
 The plan-image writer rejects names or counts that exceed its wire-format fields
 before consuming arena space; oversized names cannot silently wrap their length.
+
+The incremental window helpers skip empty sections and keep the full `u64`
+window index, including addresses above 16 TiB with 4096-byte windows. In the
+0.4.0 Rust API, `LayoutPlan::window_of` returns `u64` and `windows_touched`
+returns `Vec<u64>`; callers with explicit `u32` result types must update them.
+The C ABI (version 1), block indices, and serialized plan format are unchanged.
+Touched windows are sorted and unique. Spans extending past `u64::MAX` are
+clipped there; enumeration still uses memory proportional to the number of
+touched windows and is not a bounded validator for untrusted plans.
 
 The zero-alloc claim is enforced, not asserted: `wupz-rs/tests/no_alloc.rs`
 installs a counting global allocator and fails if `pack_into` allocates after the
