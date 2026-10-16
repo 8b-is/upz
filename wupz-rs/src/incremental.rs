@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn nothing_changed_reuses_everything() {
         let old = plan(&[(0, 0xaa, 0x1000), (1, 0xbb, 0x2000)]);
-        let new = old.clone();
+        let new = plan(&[(0, 0xaa, 0x1000), (1, 0xbb, 0x2000)]);
         let changed = changed_sections(&old, &new);
         assert!(changed.is_empty());
         assert_eq!(reuse_ratio(&new, &changed), 1.0);

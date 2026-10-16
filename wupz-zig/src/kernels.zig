@@ -103,15 +103,102 @@ pub fn popcount(bytes: []const u8) u64 {
 
 // ── the C ABI (see include/wupz_abi.h) ──────────────────────────────────────
 
-export fn wupz_xor_fold(ptr: [*]const u8, len: usize) u64 {
+const builtin = @import("builtin");
+
+/// Scrub caller-saved SIMD/NEON vector registers and scratch general-purpose
+/// registers before returning across the C ABI boundary so secret input chunks
+/// or tail comparison bytes never remain in registers (`ZA-0004`).
+inline fn scrubCallerRegisters() void {
+    switch (builtin.cpu.arch) {
+        .aarch64, .aarch64_be => {
+            asm volatile (
+                \\movi v0.2d, #0
+                \\movi v1.2d, #0
+                \\movi v2.2d, #0
+                \\movi v3.2d, #0
+                \\movi v4.2d, #0
+                \\movi v5.2d, #0
+                \\movi v6.2d, #0
+                \\movi v7.2d, #0
+                \\mov x8, #0
+                \\mov x9, #0
+                \\mov x10, #0
+                \\mov x11, #0
+                \\mov x12, #0
+                \\mov x13, #0
+                \\mov x14, #0
+                \\mov x15, #0
+                ::: .{
+                    .v0 = true,
+                    .v1 = true,
+                    .v2 = true,
+                    .v3 = true,
+                    .v4 = true,
+                    .v5 = true,
+                    .v6 = true,
+                    .v7 = true,
+                    .x8 = true,
+                    .x9 = true,
+                    .x10 = true,
+                    .x11 = true,
+                    .x12 = true,
+                    .x13 = true,
+                    .x14 = true,
+                    .x15 = true,
+                });
+        },
+        .x86_64 => {
+            asm volatile (
+                \\pxor %%xmm0, %%xmm0
+                \\pxor %%xmm1, %%xmm1
+                \\pxor %%xmm2, %%xmm2
+                \\pxor %%xmm3, %%xmm3
+                \\xorq %%rcx, %%rcx
+                \\xorq %%rdx, %%rdx
+                \\xorq %%rsi, %%rsi
+                \\xorq %%rdi, %%rdi
+                \\xorq %%r8, %%r8
+                \\xorq %%r9, %%r9
+                \\xorq %%r10, %%r10
+                \\xorq %%r11, %%r11
+                ::: .{
+                    .xmm0 = true,
+                    .xmm1 = true,
+                    .xmm2 = true,
+                    .xmm3 = true,
+                    .rcx = true,
+                    .rdx = true,
+                    .rsi = true,
+                    .rdi = true,
+                    .r8 = true,
+                    .r9 = true,
+                    .r10 = true,
+                    .r11 = true,
+                });
+        },
+        else => {},
+    }
+}
+
+export fn wupz_xor_fold(ptr_opt: ?[*]const u8, len: usize) u64 {
+    defer scrubCallerRegisters();
+    if (len == 0) return 0;
+    const ptr = ptr_opt orelse return 0;
     return xorFold(ptr[0..len]);
 }
 
-export fn wupz_byte_diff(a: [*]const u8, b: [*]const u8, len: usize) u64 {
+export fn wupz_byte_diff(a_opt: ?[*]const u8, b_opt: ?[*]const u8, len: usize) u64 {
+    defer scrubCallerRegisters();
+    if (len == 0) return 0;
+    const a = a_opt orelse return 0;
+    const b = b_opt orelse return 0;
     return byteDiff(a[0..len], b[0..len]);
 }
 
-export fn wupz_popcount(ptr: [*]const u8, len: usize) u64 {
+export fn wupz_popcount(ptr_opt: ?[*]const u8, len: usize) u64 {
+    defer scrubCallerRegisters();
+    if (len == 0) return 0;
+    const ptr = ptr_opt orelse return 0;
     return popcount(ptr[0..len]);
 }
 
@@ -179,4 +266,12 @@ test "xorFold composes with a seal byte" {
     const body = xorFold(frame[0..78]);
     frame[78] = @truncate(body);
     try std.testing.expectEqual(body ^ @as(u64, frame[78]), xorFold(frame[0..79]));
+}
+
+test "C ABI exports fail closed on null pointers" {
+    var dummy: [16]u8 = @splat(0x42);
+    try std.testing.expectEqual(@as(u64, 0), wupz_xor_fold(null, 64));
+    try std.testing.expectEqual(@as(u64, 0), wupz_popcount(null, 64));
+    try std.testing.expectEqual(@as(u64, 0), wupz_byte_diff(null, &dummy, 16));
+    try std.testing.expectEqual(@as(u64, 0), wupz_byte_diff(&dummy, null, 16));
 }

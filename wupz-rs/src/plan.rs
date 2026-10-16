@@ -9,7 +9,7 @@ pub struct SectionId(pub u32);
 ///
 /// The hash is over the *resolved* content (post-relocation), so a plan can be
 /// diffed without re-reading the object files.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Section {
     pub id: SectionId,
     pub name: String,
@@ -18,24 +18,87 @@ pub struct Section {
     pub hash: u64,
 }
 
+impl Section {
+    /// Volatily scrub all metadata and section hash fields in place.
+    pub fn zeroize(&mut self) {
+        // SAFETY: `self.name.as_bytes_mut()` is overwritten with valid ASCII NULs (0u8).
+        let name_bytes = unsafe { self.name.as_bytes_mut() };
+        crate::arena::zeroize_slice(name_bytes);
+        self.name.clear();
+        unsafe {
+            core::ptr::write_volatile(&mut self.id.0, 0u32);
+            core::ptr::write_volatile(&mut self.addr, 0u64);
+            core::ptr::write_volatile(&mut self.len, 0u64);
+            core::ptr::write_volatile(&mut self.hash, 0u64);
+        }
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Drop for Section {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 /// One packed block: the sections whose bytes it covers.
 ///
 /// The covering set is what makes incremental repack possible — a block is
 /// invalidated iff its set intersects the changed set.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Block {
     pub index: u32,
     pub covers: Vec<SectionId>,
 }
 
+impl Block {
+    /// Volatily scrub block index and covered section IDs in place.
+    pub fn zeroize(&mut self) {
+        for cover in self.covers.iter_mut() {
+            unsafe { core::ptr::write_volatile(&mut cover.0, 0u32) };
+        }
+        self.covers.clear();
+        unsafe { core::ptr::write_volatile(&mut self.index, 0u32) };
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Drop for Block {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
 /// The whole plan. `window_size` is the address-independent packing window
 /// (see `docs/DESIGN.md` §4): layout is packed in fixed windows so a shifted
 /// section perturbs one window, not the tail.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct LayoutPlan {
     pub sections: Vec<Section>,
     pub blocks: Vec<Block>,
     pub window_size: u64,
+}
+
+impl LayoutPlan {
+    /// Volatily scrub all sections, blocks, and window metadata in place.
+    pub fn zeroize(&mut self) {
+        for s in self.sections.iter_mut() {
+            s.zeroize();
+        }
+        self.sections.clear();
+        for b in self.blocks.iter_mut() {
+            b.zeroize();
+        }
+        self.blocks.clear();
+        unsafe { core::ptr::write_volatile(&mut self.window_size, 0u64) };
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Drop for LayoutPlan {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 impl Default for LayoutPlan {
@@ -174,5 +237,26 @@ mod tests {
         let p = sample();
         assert_eq!(p.block_for(SectionId(1)).map(|b| b.index), Some(1));
         assert!(p.block_for(SectionId(9)).is_none());
+    }
+
+    #[test]
+    fn zeroize_scrubs_section_hashes_and_names() {
+        let mut s = Section {
+            id: SectionId(7),
+            name: ".secret_section".into(),
+            addr: 0x4000,
+            len: 0x100,
+            hash: 0xDEAD_BEEF_CAFE_BABE,
+        };
+        let name_ptr = s.name.as_ptr();
+        let name_len = s.name.len();
+        s.zeroize();
+        assert_eq!(s.id.0, 0);
+        assert_eq!(s.addr, 0);
+        assert_eq!(s.len, 0);
+        assert_eq!(s.hash, 0);
+        assert!(s.name.is_empty());
+        let scrubbed_name = unsafe { core::slice::from_raw_parts(name_ptr, name_len) };
+        assert!(scrubbed_name.iter().all(|&b| b == 0));
     }
 }

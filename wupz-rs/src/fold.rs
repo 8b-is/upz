@@ -6,19 +6,22 @@
 //! across every length from 0 to 1088 — the seam is exercised, not assumed.
 
 /// The scalar reference. Also the fallback when zig is absent.
+/// Folds each byte directly into the accumulator without staging 8-byte slices
+/// onto the stack (`word: [u8; 8]`), preventing stack retention across all
+/// optimization levels (`-O0`, `-O1`, `-O2`) (`ZA-0002`, `ZA-0003`).
 pub fn xor_fold_scalar(bytes: &[u8]) -> u64 {
+    let full_words_len = bytes.len() & !7usize;
     let mut acc: u64 = 0;
     let mut i = 0usize;
-    while i + 8 <= bytes.len() {
-        let mut word = [0u8; 8];
-        word.copy_from_slice(&bytes[i..i + 8]);
-        acc ^= u64::from_le_bytes(word);
-        i += 8;
+    while i < full_words_len {
+        acc ^= (bytes[i] as u64) << ((i & 7) * 8);
+        i += 1;
     }
     while i < bytes.len() {
         acc ^= bytes[i] as u64;
         i += 1;
     }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     acc
 }
 
