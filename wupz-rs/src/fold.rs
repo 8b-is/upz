@@ -101,3 +101,34 @@ pub fn popcount(bytes: &[u8]) -> u64 {
 pub fn popcount(bytes: &[u8]) -> u64 {
     popcount_scalar(bytes)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eq_frame_32b_fold_and_incremental_diff() {
+        // 32-byte 8b-is Dynamic Environment Equalizer frame (ABI v1)
+        let mut frame_a = [0u8; 32];
+        frame_a[0..2].copy_from_slice(&(-251i16).to_le_bytes()); // -25.1 dBFS
+        frame_a[8..10].copy_from_slice(&(213i16).to_le_bytes()); // +2.13 dB 60Hz
+        frame_a[18..20].copy_from_slice(&(1000i16).to_le_bytes()); // 1.000 Left Jack Vol
+        frame_a[20..22].copy_from_slice(&(1000i16).to_le_bytes()); // 1.000 Right AirPods Vol
+        frame_a[24] = 0x59; // qt:59
+        frame_a[25] = 1; // ABI v1
+        let prefix = xor_fold(&frame_a[0..26]).to_le_bytes();
+        frame_a[26..32].copy_from_slice(&prefix[0..6]);
+
+        assert_eq!(xor_fold(&frame_a), xor_fold_scalar(&frame_a));
+        assert_eq!(byte_diff(&frame_a, &frame_a), 0);
+        assert!(popcount(&frame_a) > 0);
+
+        let mut frame_b = frame_a;
+        frame_b[12..14].copy_from_slice(&(280i16).to_le_bytes()); // +2.80 dB 1kHz
+        assert_eq!(
+            byte_diff(&frame_a, &frame_b),
+            byte_diff_scalar(&frame_a, &frame_b)
+        );
+        assert!(byte_diff(&frame_a, &frame_b) > 0);
+    }
+}
