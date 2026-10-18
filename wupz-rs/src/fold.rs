@@ -6,19 +6,22 @@
 //! across every length from 0 to 1088 — the seam is exercised, not assumed.
 
 /// The scalar reference. Also the fallback when zig is absent.
+/// Folds each byte directly into the accumulator without staging 8-byte slices
+/// onto the stack (`word: [u8; 8]`), preventing stack retention across all
+/// optimization levels (`-O0`, `-O1`, `-O2`) (`ZA-0002`, `ZA-0003`).
 pub fn xor_fold_scalar(bytes: &[u8]) -> u64 {
+    let full_words_len = bytes.len() & !7usize;
     let mut acc: u64 = 0;
     let mut i = 0usize;
-    while i + 8 <= bytes.len() {
-        let mut word = [0u8; 8];
-        word.copy_from_slice(&bytes[i..i + 8]);
-        acc ^= u64::from_le_bytes(word);
-        i += 8;
+    while i < full_words_len {
+        acc ^= (bytes[i] as u64) << ((i & 7) * 8);
+        i += 1;
     }
     while i < bytes.len() {
         acc ^= bytes[i] as u64;
         i += 1;
     }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     acc
 }
 
@@ -97,4 +100,35 @@ pub fn popcount(bytes: &[u8]) -> u64 {
 #[cfg(not(have_zig))]
 pub fn popcount(bytes: &[u8]) -> u64 {
     popcount_scalar(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eq_frame_32b_fold_and_incremental_diff() {
+        // 32-byte 8b-is Dynamic Environment Equalizer frame (ABI v1)
+        let mut frame_a = [0u8; 32];
+        frame_a[0..2].copy_from_slice(&(-251i16).to_le_bytes()); // -25.1 dBFS
+        frame_a[8..10].copy_from_slice(&(213i16).to_le_bytes()); // +2.13 dB 60Hz
+        frame_a[18..20].copy_from_slice(&(1000i16).to_le_bytes()); // 1.000 Left Jack Vol
+        frame_a[20..22].copy_from_slice(&(1000i16).to_le_bytes()); // 1.000 Right AirPods Vol
+        frame_a[24] = 0x59; // qt:59
+        frame_a[25] = 1; // ABI v1
+        let prefix = xor_fold(&frame_a[0..26]).to_le_bytes();
+        frame_a[26..32].copy_from_slice(&prefix[0..6]);
+
+        assert_eq!(xor_fold(&frame_a), xor_fold_scalar(&frame_a));
+        assert_eq!(byte_diff(&frame_a, &frame_a), 0);
+        assert!(popcount(&frame_a) > 0);
+
+        let mut frame_b = frame_a;
+        frame_b[12..14].copy_from_slice(&(280i16).to_le_bytes()); // +2.80 dB 1kHz
+        assert_eq!(
+            byte_diff(&frame_a, &frame_b),
+            byte_diff_scalar(&frame_a, &frame_b)
+        );
+        assert!(byte_diff(&frame_a, &frame_b) > 0);
+    }
 }

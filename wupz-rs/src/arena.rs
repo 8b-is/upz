@@ -6,6 +6,18 @@
 //! The integration test `tests/no_alloc.rs` enforces it with a counting
 //! allocator.
 
+/// Overwrite every byte in `slice` using volatile writes followed by a
+/// sequentially-consistent compiler fence so LLVM DSE cannot elide the wipe.
+#[inline(never)]
+pub fn zeroize_slice(slice: &mut [u8]) {
+    for byte in slice.iter_mut() {
+        // SAFETY: `byte` is a valid, aligned mutable reference within `slice`.
+        unsafe { core::ptr::write_volatile(byte, 0u8) };
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    core::hint::black_box(slice);
+}
+
 /// A bump arena with a fixed buffer.
 pub struct Arena {
     buf: Vec<u8>,
@@ -44,16 +56,33 @@ impl Arena {
         Some(&mut self.buf[start..start + len])
     }
 
+    /// Explicitly scrub the entire arena buffer in place.
+    pub fn zeroize(&mut self) {
+        zeroize_slice(&mut self.buf);
+        self.used = 0;
+    }
+
     /// Seal the arena: all allocation is done, only reads remain.
-    pub fn seal(self) -> Seal {
-        Seal {
-            buf: self.buf,
-            used: self.used,
+    /// Unused tail capacity `[used..]` is volatily scrubbed before sealing.
+    pub fn seal(mut self) -> Seal {
+        let used = self.used;
+        if used < self.buf.len() {
+            zeroize_slice(&mut self.buf[used..]);
         }
+        let buf = core::mem::take(&mut self.buf);
+        self.used = 0;
+        Seal { buf, used }
     }
 }
 
-/// A sealed arena. Read-only by construction.
+impl Drop for Arena {
+    fn drop(&mut self) {
+        zeroize_slice(&mut self.buf);
+        self.used = 0;
+    }
+}
+
+/// A sealed arena. Read-only by construction; volatily scrubbed on drop.
 pub struct Seal {
     buf: Vec<u8>,
     used: usize,
@@ -70,6 +99,19 @@ impl Seal {
 
     pub fn is_empty(&self) -> bool {
         self.used == 0
+    }
+
+    /// Explicitly scrub the sealed buffer in place.
+    pub fn zeroize(&mut self) {
+        zeroize_slice(&mut self.buf);
+        self.used = 0;
+    }
+}
+
+impl Drop for Seal {
+    fn drop(&mut self) {
+        zeroize_slice(&mut self.buf);
+        self.used = 0;
     }
 }
 
@@ -106,5 +148,20 @@ mod tests {
         let mut a = Arena::with_capacity(32);
         let _ = a.alloc(5);
         assert_eq!(a.seal().as_slice().len(), 5);
+    }
+
+    #[test]
+    fn arena_and_seal_zeroize_scrubs_bytes() {
+        let mut a = Arena::with_capacity(32);
+        let s = a.alloc(8).unwrap();
+        s.copy_from_slice(&0xCAFE_BABE_DEAD_BEEFu64.to_le_bytes());
+        let mut sealed = a.seal();
+        assert_eq!(sealed.as_slice(), &0xCAFE_BABE_DEAD_BEEFu64.to_le_bytes());
+        let raw_ptr = sealed.as_slice().as_ptr();
+        sealed.zeroize();
+        assert!(sealed.is_empty());
+        // Verify the underlying buffer bytes were scrubbed to 0 in place before dealloc
+        let scrubbed = unsafe { core::slice::from_raw_parts(raw_ptr, 8) };
+        assert_eq!(scrubbed, &[0u8; 8]);
     }
 }

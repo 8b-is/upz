@@ -36,6 +36,21 @@ int main(void) {
         return 1;
     }
 
+    /* SECURITY.md fail-closed null-pointer invariant + wupz_zeroize check */
+    if (wupz_xor_fold(NULL, 32) != 0 || wupz_popcount(NULL, 32) != 0 || wupz_byte_diff(NULL, p, 16) != 0) {
+        fprintf(stderr, "abi_smoke: null pointers must fail closed with 0\n");
+        return 1;
+    }
+    uint8_t secret_buf[16];
+    memcpy(secret_buf, "SECRET_KEY_2026!", 16);
+    wupz_zeroize(secret_buf, sizeof(secret_buf));
+    for (size_t i = 0; i < sizeof(secret_buf); ++i) {
+        if (secret_buf[i] != 0) {
+            fprintf(stderr, "abi_smoke: wupz_zeroize failed to scrub byte %zu\n", i);
+            return 1;
+        }
+    }
+
     printf("abi %u ok (header=rust=zig=%u) · fold=0x%016llx · popcount=%llu · diff=%llu\n",
            WUPZ_ABI_VERSION, hdr,
            (unsigned long long)fold,

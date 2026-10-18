@@ -36,6 +36,22 @@ uint64_t wupz_byte_diff(const uint8_t *a, const uint8_t *b, size_t len);
 /* wupz-zig: population count over a span (density hint). */
 uint64_t wupz_popcount(const uint8_t *ptr, size_t len);
 
+/* DSE-resistant memory scrub helper for C/FFI callers (ZA-0003).
+ * Uses volatile byte stores + compiler memory barrier so -O2/-O3 Dead Store
+ * Elimination cannot strip stack/heap wipes prior to scope exit. */
+static inline void wupz_zeroize(void *ptr, size_t len) {
+    if (ptr == NULL || len == 0) {
+        return;
+    }
+    volatile uint8_t *p = (volatile uint8_t *)ptr;
+    for (size_t i = 0; i < len; ++i) {
+        p[i] = 0u;
+    }
+#if defined(__GNUC__) || defined(__clang__)
+    __asm__ __volatile__("" : : "r"(ptr) : "memory");
+#endif
+}
+
 #ifdef __cplusplus
 }
 #endif
