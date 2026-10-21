@@ -166,6 +166,17 @@ The nightly lane ([`nightly-zig.yml`](.github/workflows/nightly-zig.yml)) runs t
 kernels on **Zig master** — `0.18.0-dev.131` passes all five differential tests
 with zero source changes.
 
+## constellation seam (`alexiai` × `gaia-mlx-quant`)
+
+The `wupz` C ABI v1 kernels (`wupz_xor_fold`, `wupz_byte_diff`, `wupz_popcount`),
+the deterministic `"WUPZ"` v1 layout plan image (`pack_into`), incremental
+section diffing (`changed_sections`), and the `wupz.vaked.dev` `QuantTern`
+emotional ternary codec (`qt:<hex>`) are also wired directly into
+[**`8b-is/alexiai`**](https://github.com/8b-is/alexiai) (`gaia_mlx_quant::wupz`
+across Rust `#![no_std]`, C99, Go, and Swift) for zero-alloc, zero-float (`p/q`)
+packing and incremental QAT diffing of `b1.58` and 64-trit quantum bitplane
+weight sections.
+
 ## license
 
 AGPL-3.0-only for wupz's own code. Third-party terms in
