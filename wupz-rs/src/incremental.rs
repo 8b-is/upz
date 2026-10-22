@@ -5,7 +5,10 @@
 //! linker: given two plans, decide the minimum work.
 
 use crate::plan::{LayoutPlan, SectionId};
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
+use alloc::vec::Vec;
+#[cfg(test)]
+use alloc::{format, vec};
 
 /// Sections whose resolved bytes differ between `old` and `new`.
 ///

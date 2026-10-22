@@ -6,6 +6,8 @@
 //! The integration test `tests/no_alloc.rs` enforces it with a counting
 //! allocator.
 
+use alloc::{vec, vec::Vec};
+
 /// Overwrite every byte in `slice` using volatile writes followed by a
 /// sequentially-consistent compiler fence so LLVM DSE cannot elide the wipe.
 #[inline(never)]

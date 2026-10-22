@@ -16,6 +16,8 @@
 //! blocks[]      index u32 · cover_count u32 · covers u32..
 //! ```
 
+#[cfg(test)]
+use alloc::vec;
 use crate::arena::Arena;
 use crate::plan::LayoutPlan;
 

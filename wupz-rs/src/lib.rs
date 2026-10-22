@@ -8,6 +8,12 @@
 //! pre-sized arena, and the plan-image emitter. No ELF reader and no real
 //! compressor yet — those are P1/P3 in `docs/ROADMAP.md`.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+#[cfg(any(test, feature = "std"))]
+extern crate std;
+
 pub mod arena;
 pub mod fold;
 pub mod incremental;
