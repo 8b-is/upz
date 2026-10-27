@@ -102,6 +102,34 @@ pub fn popcount(bytes: &[u8]) -> u64 {
     popcount_scalar(bytes)
 }
 
+/// Default `kompress-super-ultra` gate byte (`0x62`).
+pub const GATE_0X62: u8 = 0x62;
+/// 32B frame ABI version (`1`).
+pub const FRAME_ABI_V1: u8 = 0x01;
+
+/// Seal `(raw, packed)` into a 32-byte `0x62`-gated `wupz` frame.
+pub fn seal_frame_32b(raw: &[u8], packed: &[u8], gate: u8) -> [u8; 32] {
+    let mut frame = [0u8; 32];
+    frame[0..8].copy_from_slice(&xor_fold(raw).to_le_bytes());
+    frame[8..16].copy_from_slice(&xor_fold(packed).to_le_bytes());
+    frame[16..20].copy_from_slice(&(raw.len() as u32).to_le_bytes());
+    frame[20..24].copy_from_slice(&(packed.len() as u32).to_le_bytes());
+    frame[24] = gate;
+    frame[25] = FRAME_ABI_V1;
+    let prefix = xor_fold(&frame[0..26]).to_le_bytes();
+    frame[26..32].copy_from_slice(&prefix[0..6]);
+    frame
+}
+
+/// Verify a 32-byte `wupz` frame against `(raw, packed, gate)` in constant shape.
+pub fn verify_frame_32b(frame: &[u8; 32], raw: &[u8], packed: &[u8], gate: u8) -> bool {
+    if frame[24] != gate || frame[25] != FRAME_ABI_V1 {
+        return false;
+    }
+    let expected = seal_frame_32b(raw, packed, gate);
+    byte_diff(frame, &expected) == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +158,19 @@ mod tests {
             byte_diff_scalar(&frame_a, &frame_b)
         );
         assert!(byte_diff(&frame_a, &frame_b) > 0);
+    }
+
+    #[test]
+    fn kompress_super_ultra_32b_seal_at_0x62_gate() {
+        let raw = [0x62u8; 3761];
+        let packed = [0x33u8; 3314];
+        let mut frame = seal_frame_32b(&raw, &packed, GATE_0X62);
+        assert_eq!(frame[24], GATE_0X62);
+        assert_eq!(frame[25], FRAME_ABI_V1);
+        assert!(verify_frame_32b(&frame, &raw, &packed, GATE_0X62));
+
+        // Any amplitude spike or bit flip trips the 0x62 gate seal
+        frame[31] ^= 0x01;
+        assert!(!verify_frame_32b(&frame, &raw, &packed, GATE_0X62));
     }
 }

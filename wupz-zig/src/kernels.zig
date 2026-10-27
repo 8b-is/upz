@@ -101,6 +101,31 @@ pub fn popcount(bytes: []const u8) u64 {
     return count;
 }
 
+// ── 32B 0x62-gate frame sealing (kompress-super-ultra parity) ───────────────
+
+pub const GATE_0X62: u8 = 0x62;
+pub const FRAME_ABI_V1: u8 = 0x01;
+
+pub fn sealFrame32B(raw: []const u8, packed_bytes: []const u8, gate: u8) [32]u8 {
+    var frame: [32]u8 = @splat(0);
+    std.mem.writeInt(u64, frame[0..8], xorFold(raw), .little);
+    std.mem.writeInt(u64, frame[8..16], xorFold(packed_bytes), .little);
+    std.mem.writeInt(u32, frame[16..20], @truncate(raw.len), .little);
+    std.mem.writeInt(u32, frame[20..24], @truncate(packed_bytes.len), .little);
+    frame[24] = gate;
+    frame[25] = FRAME_ABI_V1;
+    var prefix_le: [8]u8 = undefined;
+    std.mem.writeInt(u64, &prefix_le, xorFold(frame[0..26]), .little);
+    @memcpy(frame[26..32], prefix_le[0..6]);
+    return frame;
+}
+
+pub fn verifyFrame32B(frame: *const [32]u8, raw: []const u8, packed_bytes: []const u8, gate: u8) bool {
+    if (frame[24] != gate or frame[25] != FRAME_ABI_V1) return false;
+    const expected = sealFrame32B(raw, packed_bytes, gate);
+    return byteDiff(frame[0..], expected[0..]) == 0;
+}
+
 // ── the C ABI (see include/wupz_abi.h) ──────────────────────────────────────
 
 const builtin = @import("builtin");
@@ -274,4 +299,18 @@ test "C ABI exports fail closed on null pointers" {
     try std.testing.expectEqual(@as(u64, 0), wupz_popcount(null, 64));
     try std.testing.expectEqual(@as(u64, 0), wupz_byte_diff(null, &dummy, 16));
     try std.testing.expectEqual(@as(u64, 0), wupz_byte_diff(&dummy, null, 16));
+}
+
+test "32B 0x62-gate frame seal verifies 3761/3314 kompress-super-ultra density and rejects spikes" {
+    var raw: [3761]u8 = undefined;
+    var packed_bytes: [3314]u8 = undefined;
+    fill(raw[0..], 0x3761_3314_0000_0062);
+    fill(packed_bytes[0..], 0x0062_3314_3761_0001);
+
+    var frame = sealFrame32B(raw[0..], packed_bytes[0..], GATE_0X62);
+    try std.testing.expectEqual(GATE_0X62, frame[24]);
+    try std.testing.expect(verifyFrame32B(&frame, raw[0..], packed_bytes[0..], GATE_0X62));
+
+    frame[31] ^= 0x01;
+    try std.testing.expect(!verifyFrame32B(&frame, raw[0..], packed_bytes[0..], GATE_0X62));
 }
