@@ -106,6 +106,52 @@ pub fn popcount(bytes: &[u8]) -> u64 {
 pub const GATE_0X62: u8 = 0x62;
 /// 32B frame ABI version (`1`).
 pub const FRAME_ABI_V1: u8 = 0x01;
+/// Alternating 0x55 quantization bitplane mask byte (`qt:55`).
+pub const QUANT_QT55: u8 = 0x55;
+/// Canonical 64-bit `kompress-super-ultra` fold signature at `qt:55` and gate `0x62`.
+pub const FOLD_0XE1034E575C371AB0: u64 = 0xe103_4e57_5c37_1ab0;
+
+/// Broadcast an 8-bit quantization mask across all 8 bytes of a 64-bit word.
+#[inline]
+pub const fn qt_broadcast_mask(qt: u8) -> u64 {
+    (qt as u64).wrapping_mul(0x0101_0101_0101_0101)
+}
+
+/// Pack a 64-bit fold signature into disjoint `BFP-64` positive and negative bitplanes
+/// partitioned by the quantization byte `qt`.
+#[inline]
+pub const fn pack_fold_bfp64(fold: u64, qt: u8) -> (u64, u64) {
+    let mask = qt_broadcast_mask(qt);
+    (fold & mask, fold & !mask)
+}
+
+/// Reconstruct the 64-bit fold signature from `BFP-64` bitplanes and verify zero bit leakage.
+#[inline]
+pub const fn unpack_fold_bfp64(pos_plane: u64, neg_plane: u64, qt: u8) -> Option<u64> {
+    if (pos_plane & neg_plane) != 0 {
+        return None;
+    }
+    let mask = qt_broadcast_mask(qt);
+    if (pos_plane & !mask) != 0 || (neg_plane & mask) != 0 {
+        return None;
+    }
+    Some(pos_plane | neg_plane)
+}
+
+/// 64-lane Kleene three-valued AND (`+AND=1`) over `BFP-64` bitplane words.
+#[inline]
+pub const fn bfp64_and_kleene(pos_a: u64, neg_a: u64, pos_b: u64, neg_b: u64) -> (u64, u64) {
+    let neg_out = neg_a | neg_b;
+    let pos_out = (pos_a & pos_b) & !neg_out;
+    (pos_out, neg_out)
+}
+
+/// 64-lane Kleene three-valued NAND (`~NAND=-1`) over `BFP-64` bitplane words.
+#[inline]
+pub const fn bfp64_nand_kleene(pos_a: u64, neg_a: u64, pos_b: u64, neg_b: u64) -> (u64, u64) {
+    let (p, n) = bfp64_and_kleene(pos_a, neg_a, pos_b, neg_b);
+    (n, p)
+}
 
 /// Seal `(raw, packed)` into a 32-byte `0x62`-gated `wupz` frame.
 pub fn seal_frame_32b(raw: &[u8], packed: &[u8], gate: u8) -> [u8; 32] {
@@ -172,5 +218,17 @@ mod tests {
         // Any amplitude spike or bit flip trips the 0x62 gate seal
         frame[31] ^= 0x01;
         assert!(!verify_frame_32b(&frame, &raw, &packed, GATE_0X62));
+
+        let (pos, neg) = pack_fold_bfp64(FOLD_0XE1034E575C371AB0, QUANT_QT55);
+        assert_eq!(pos & neg, 0);
+        let (and_p, and_n) = bfp64_and_kleene(pos, 0, pos, 0);
+        let (nand_p, nand_n) = bfp64_nand_kleene(neg, 0, neg, 0);
+        assert_eq!((and_p, and_n), (pos, 0));
+        assert_eq!((nand_p, nand_n), (0, neg));
+        assert_eq!(
+            unpack_fold_bfp64(and_p, nand_n, QUANT_QT55),
+            Some(FOLD_0XE1034E575C371AB0)
+        );
+        assert_eq!(unpack_fold_bfp64(pos | 0x02, neg, QUANT_QT55), None);
     }
 }

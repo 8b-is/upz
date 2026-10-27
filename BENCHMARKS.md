@@ -24,12 +24,12 @@
 
 | kernel | backend | GiB/s | median | vs scalar |
 |---|---|---|---|---|
-| `xor_fold` | zig-simd | 45.65 | 1.37 ms | **0.92×** |
-| `xor_fold` | rust-scalar | 49.72 | 1.26 ms | 1.00× |
-| `byte_diff` | zig-simd | 18.44 | 3.39 ms | **3.23×** |
-| `byte_diff` | rust-scalar | 5.70 | 10.97 ms | 1.00× |
-| `popcount` | zig-simd | 14.24 | 4.39 ms | 0.99× |
-| `popcount` | rust-scalar | 14.35 | 4.36 ms | 1.00× |
+| `xor_fold` | zig-simd | **39.49** | 1.58 ms | **13.52×** |
+| `xor_fold` | rust-scalar | 2.92 | 21.39 ms | 1.00× |
+| `popcount` | zig-simd | **37.34** | 1.67 ms | **3.20×** |
+| `popcount` | rust-scalar | 11.67 | 5.35 ms | 1.00× |
+| `byte_diff` | zig-simd | **16.86** | 3.71 ms | **3.71×** |
+| `byte_diff` | rust-scalar | 4.55 | 13.75 ms | 1.00× |
 
 Both backends produce the **same sink** (`fold=3a5e1d62251cee13`, `diff=66846195`,
 `pop=268427185`) — the numbers are comparable because the answers are identical.

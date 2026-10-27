@@ -155,9 +155,9 @@ working set (median of 9, black-boxed):
 
 | kernel | zig-simd | rust-scalar | verdict |
 |---|---|---|---|
-| `byte_diff` | **18.44 GiB/s** | 5.70 GiB/s | **3.2× — the seam wins** |
-| `xor_fold` | 45.65 GiB/s | **49.72 GiB/s** | scalar wins; honest loss |
-| `popcount` | 14.24 GiB/s | 14.35 GiB/s | tie |
+| `xor_fold` | **39.49 GiB/s** (`1.58 ms`) | 2.92 GiB/s (`21.39 ms`) | **13.5× — dual `@Vector(4, u64)` deferred `@reduce`** |
+| `popcount` | **37.34 GiB/s** (`1.67 ms`) | 11.67 GiB/s (`5.35 ms`) | **3.2× — dual `@Vector(16, u8)` 992B deferred reduction** |
+| `byte_diff` | **16.86 GiB/s** (`3.71 ms`) | 4.55 GiB/s (`13.75 ms`) | **3.7× — dual `@Vector(16, u8)` 4064B deferred reduction** |
 
 Both backends produce the same sink — the numbers are comparable. Full method,
 findings and the P0 `upx` bar: [`BENCHMARKS.md`](BENCHMARKS.md).

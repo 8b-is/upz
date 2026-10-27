@@ -25,19 +25,38 @@ pub fn xorFoldScalar(bytes: []const u8) u64 {
     return acc;
 }
 
-/// Vectorized: fold four u64 lanes per step in one `@reduce`.
+/// Vectorized: dual @Vector(4, u64) accumulators (64B/step) with deferred horizontal @reduce.
 pub fn xorFold(bytes: []const u8) u64 {
-    var acc: u64 = 0;
+    var acc0: @Vector(4, u64) = @splat(0);
+    var acc1: @Vector(4, u64) = @splat(0);
     var i: usize = 0;
-    while (i + 32 <= bytes.len) : (i += 32) {
-        const words: @Vector(4, u64) = .{
+    while (i + 64 <= bytes.len) : (i += 64) {
+        const w0: @Vector(4, u64) = .{
             std.mem.readInt(u64, bytes[i..][0..8], .little),
             std.mem.readInt(u64, bytes[i + 8 ..][0..8], .little),
             std.mem.readInt(u64, bytes[i + 16 ..][0..8], .little),
             std.mem.readInt(u64, bytes[i + 24 ..][0..8], .little),
         };
-        acc ^= @reduce(.Xor, words);
+        const w1: @Vector(4, u64) = .{
+            std.mem.readInt(u64, bytes[i + 32 ..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 40 ..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 48 ..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 56 ..][0..8], .little),
+        };
+        acc0 ^= w0;
+        acc1 ^= w1;
     }
+    if (i + 32 <= bytes.len) {
+        const w0: @Vector(4, u64) = .{
+            std.mem.readInt(u64, bytes[i..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 8 ..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 16 ..][0..8], .little),
+            std.mem.readInt(u64, bytes[i + 24 ..][0..8], .little),
+        };
+        acc0 ^= w0;
+        i += 32;
+    }
+    var acc: u64 = @reduce(.Xor, acc0 ^ acc1);
     while (i + 8 <= bytes.len) : (i += 8) {
         acc ^= std.mem.readInt(u64, bytes[i..][0..8], .little);
     }
@@ -60,18 +79,36 @@ pub fn byteDiffScalar(a: []const u8, b: []const u8) u64 {
     return count;
 }
 
-/// Vectorized: 16 bytes per step, compared as a u8 vector, summed as u32.
+/// Vectorized: dual @Vector(16, u8) accumulators across up to 127 * 32B blocks
+/// before widening to u16 and reducing horizontally.
 pub fn byteDiff(a: []const u8, b: []const u8) u64 {
     const n = @min(a.len, b.len);
     var count: u64 = 0;
     var i: usize = 0;
     const ones: @Vector(16, u8) = @splat(1);
     const zeros: @Vector(16, u8) = @splat(0);
+    while (i + 32 <= n) {
+        const pairs: usize = @min((n - i) / 32, @as(usize, 127));
+        const block_end = i + pairs * 32;
+        var lane_acc0: @Vector(16, u8) = @splat(0);
+        var lane_acc1: @Vector(16, u8) = @splat(0);
+        while (i < block_end) : (i += 32) {
+            const va0: @Vector(16, u8) = a[i..][0..16].*;
+            const vb0: @Vector(16, u8) = b[i..][0..16].*;
+            const va1: @Vector(16, u8) = a[i + 16 ..][0..16].*;
+            const vb1: @Vector(16, u8) = b[i + 16 ..][0..16].*;
+            lane_acc0 +%= @select(u8, va0 != vb0, ones, zeros);
+            lane_acc1 +%= @select(u8, va1 != vb1, ones, zeros);
+        }
+        const wide0: @Vector(16, u16) = @intCast(lane_acc0);
+        const wide1: @Vector(16, u16) = @intCast(lane_acc1);
+        count += @as(u64, @reduce(.Add, wide0 + wide1));
+    }
     while (i + 16 <= n) : (i += 16) {
         const va: @Vector(16, u8) = a[i..][0..16].*;
         const vb: @Vector(16, u8) = b[i..][0..16].*;
         const d: @Vector(16, u8) = @select(u8, va != vb, ones, zeros);
-        const wide: @Vector(16, u32) = @intCast(d);
+        const wide: @Vector(16, u16) = @intCast(d);
         count += @as(u64, @reduce(.Add, wide));
     }
     while (i < n) : (i += 1) {
@@ -88,23 +125,86 @@ pub fn popcountScalar(bytes: []const u8) u64 {
     return count;
 }
 
+/// Vectorized: dual @Vector(16, u8) popcount accumulators across 31 * 32B (992B)
+/// sub-blocks (max lane sum 31 * 8 = 248 <= 255) before widening to u16.
 pub fn popcount(bytes: []const u8) u64 {
     var count: u64 = 0;
     var i: usize = 0;
-    while (i + 8 <= bytes.len) : (i += 8) {
-        const v: @Vector(8, u8) = bytes[i..][0..8].*;
-        const pc: @Vector(8, u8) = @popCount(v);
-        const wide: @Vector(8, u32) = @intCast(pc);
-        count += @as(u64, @reduce(.Add, wide));
+    while (i + 32 <= bytes.len) {
+        const pairs: usize = @min((bytes.len - i) / 32, @as(usize, 31));
+        const block_end = i + pairs * 32;
+        var lane_acc0: @Vector(16, u8) = @splat(0);
+        var lane_acc1: @Vector(16, u8) = @splat(0);
+        while (i < block_end) : (i += 32) {
+            const v0: @Vector(16, u8) = bytes[i..][0..16].*;
+            const v1: @Vector(16, u8) = bytes[i + 16 ..][0..16].*;
+            lane_acc0 +%= @popCount(v0);
+            lane_acc1 +%= @popCount(v1);
+        }
+        const wide0: @Vector(16, u16) = @intCast(lane_acc0);
+        const wide1: @Vector(16, u16) = @intCast(lane_acc1);
+        count += @as(u64, @reduce(.Add, wide0 + wide1));
     }
     while (i < bytes.len) : (i += 1) count += @popCount(bytes[i]);
     return count;
 }
 
-// ── 32B 0x62-gate frame sealing (kompress-super-ultra parity) ───────────────
+// ── 32B 0x62-gate frame sealing & BFP-64 fold bitplanes (kompress-super-ultra) ──
 
 pub const GATE_0X62: u8 = 0x62;
 pub const FRAME_ABI_V1: u8 = 0x01;
+pub const QUANT_QT55: u8 = 0x55;
+pub const FOLD_0XE1034E575C371AB0: u64 = 0xe1034e575c371ab0;
+
+pub const Trit = enum(i8) {
+    neg = -1,
+    zero = 0,
+    pos = 1,
+};
+
+pub const Bfp64Pair = struct {
+    pos: u64,
+    neg: u64,
+};
+
+pub fn bfp64AndKleene(pos_a: u64, neg_a: u64, pos_b: u64, neg_b: u64) Bfp64Pair {
+    const neg_out = neg_a | neg_b;
+    const pos_out = (pos_a & pos_b) & ~neg_out;
+    return .{ .pos = pos_out, .neg = neg_out };
+}
+
+pub fn bfp64NandKleene(pos_a: u64, neg_a: u64, pos_b: u64, neg_b: u64) Bfp64Pair {
+    const and_pair = bfp64AndKleene(pos_a, neg_a, pos_b, neg_b);
+    return .{ .pos = and_pair.neg, .neg = and_pair.pos };
+}
+
+pub fn qtBroadcastMask(qt: u8) u64 {
+    return @as(u64, qt) *% 0x0101_0101_0101_0101;
+}
+
+pub fn packFoldBfp64(fold: u64, qt: u8) Bfp64Pair {
+    const mask = qtBroadcastMask(qt);
+    return .{ .pos = fold & mask, .neg = fold & ~mask };
+}
+
+pub fn unpackFoldBfp64(pos: u64, neg: u64, qt: u8) ?u64 {
+    if ((pos & neg) != 0) return null;
+    const mask = qtBroadcastMask(qt);
+    if ((pos & ~mask) != 0 or (neg & mask) != 0) return null;
+    return pos | neg;
+}
+
+comptime {
+    const all_ones: u64 = std.math.maxInt(u64);
+    const and_all = bfp64AndKleene(all_ones, 0, all_ones, 0);
+    if (and_all.pos != all_ones or and_all.neg != 0) @compileError("wupz comptime +AND=1 failed");
+    const nand_all = bfp64NandKleene(all_ones, 0, all_ones, 0);
+    if (nand_all.pos != 0 or nand_all.neg != all_ones) @compileError("wupz comptime ~NAND=-1 failed");
+    const packed_fold = packFoldBfp64(FOLD_0XE1034E575C371AB0, QUANT_QT55);
+    const unpacked = unpackFoldBfp64(packed_fold.pos, packed_fold.neg, QUANT_QT55) orelse
+        @compileError("wupz comptime BFP-64 unpack failed");
+    if (unpacked != FOLD_0XE1034E575C371AB0) @compileError("wupz comptime fold mismatch");
+}
 
 pub fn sealFrame32B(raw: []const u8, packed_bytes: []const u8, gate: u8) [32]u8 {
     var frame: [32]u8 = @splat(0);
@@ -313,4 +413,19 @@ test "32B 0x62-gate frame seal verifies 3761/3314 kompress-super-ultra density a
 
     frame[31] ^= 0x01;
     try std.testing.expect(!verifyFrame32B(&frame, raw[0..], packed_bytes[0..], GATE_0X62));
+}
+
+test "BFP-64 fold 0xe1034e575c371ab0 at qt:55 and multi-block deferred SIMD reductions" {
+    const planes = packFoldBfp64(FOLD_0XE1034E575C371AB0, QUANT_QT55);
+    try std.testing.expectEqual(@as(u64, 0), planes.pos & planes.neg);
+    try std.testing.expectEqual(@as(?u64, FOLD_0XE1034E575C371AB0), unpackFoldBfp64(planes.pos, planes.neg, QUANT_QT55));
+    try std.testing.expectEqual(@as(?u64, null), unpackFoldBfp64(planes.pos | 0x02, planes.neg, QUANT_QT55));
+
+    var a: [9113]u8 = undefined;
+    var b: [9113]u8 = undefined;
+    fill(a[0..], 0xe103_4e57_5c37_1ab0);
+    fill(b[0..], 0x2a69_c3fd_6cde_a62e);
+    try std.testing.expectEqual(xorFoldScalar(a[0..]), xorFold(a[0..]));
+    try std.testing.expectEqual(byteDiffScalar(a[0..], b[0..]), byteDiff(a[0..], b[0..]));
+    try std.testing.expectEqual(popcountScalar(a[0..]), popcount(a[0..]));
 }
