@@ -8,6 +8,8 @@
 
 module UpzProofs
 
+import Data.So
+
 %default total
 
 -- ============================================================================
@@ -160,6 +162,27 @@ elephunk2003 = MkWhereIsTheLove 2003 Pos Pos Pos Pos Zero Pos Refl Refl Refl
 public export
 honestGenrePropagation : kleeneAnd Pos Zero = Zero
 honestGenrePropagation = Refl
+
+public export
+record AllTheThingsSheSaidRecord where
+  constructor MkAllTheThingsSheSaid
+  releaseYear : Nat
+  titleTrit   : Trit -- +1 statement present ("All the Things She Said")
+  artistTrit  : Trit -- +1 artist ("Harrison")
+  albumTrit   : Trit -- +1 single context ("All the Things She Said - Single")
+  yearTrit    : Trit -- +1 dated (2022)
+  genreTrit   : Trit -- +1 genre present ("Dance" — 0 -> +1 rise)
+  sourceTrit  : Trit -- +1 YouTube Music / Apple Music source cited
+  0 yearProof : releaseYear = 2022
+  0 fullRise  : (titleTrit, artistTrit, albumTrit, yearTrit, genreTrit, sourceTrit) = (Pos, Pos, Pos, Pos, Pos, Pos)
+
+public export
+harrison2022 : AllTheThingsSheSaidRecord
+harrison2022 = MkAllTheThingsSheSaid 2022 Pos Pos Pos Pos Pos Pos Refl Refl
+
+public export
+genreRiseKleeneWitness : kleeneAnd (UpzProofs.elephunk2003.titleTrit) (UpzProofs.harrison2022.genreTrit) = Pos
+genreRiseKleeneWitness = Refl
 
 -- ============================================================================
 -- 5. DreamStateMachine: 5 Core Compaction & Admissibility Invariants

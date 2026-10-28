@@ -610,6 +610,15 @@ pub const WHERE_IS_THE_LOVE_YEAR: u16 = 2003;
 /// `2*1 + 2*3 + 2*9 + 2*27 + 1*81 = 161` (`0xA1`).
 pub const WHERE_IS_THE_LOVE_SPQT_BYTE0: u8 = 161;
 
+/// The 6-register ternary signal from `"All the Things She Said - Single" — Harrison` (`2022`, `Dance`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]` (`0 -> +1` genre rise).
+pub const ALL_THE_THINGS_SHE_SAID_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
+/// Release year (`2022`) for `"All the Things She Said - Single"` (`Harrison`).
+pub const ALL_THE_THINGS_SHE_SAID_YEAR: u16 = 2022;
+/// First 5 trits `[+1, +1, +1, +1, +1]` encoded in SPQT `base-243`:
+/// `2*1 + 2*3 + 2*9 + 2*27 + 2*81 = 242` (`0xF2`, maximal 5-trit SPQT saturation).
+pub const ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0: u8 = 242;
+
 /// Harvest live environment entropy around the process (`ASLR` + `"Where Is The Love?"` 6-register
 /// ternary signal + `CORDIC` constants + `extra_seed`) and return its 64-bit XOR fold witness.
 #[cfg(have_zig)]
@@ -766,11 +775,21 @@ mod tests {
         assert_eq!(out_trits, [1, -1, 0, 1, -1, 0, 1, -1]);
         assert!(scale_pq.p > 0 && scale_pq.q > 0);
 
-        // 3. "Where Is The Love?" — The Black Eyed Peas (Elephunk, 2003) 6-register signal
+        // 3. "Where Is The Love?" (Elephunk, 2003) & "All the Things She Said" (Harrison, 2022) 0 -> +1 rise
         let (witl_fold, witl_bytes, witl_ratio) = xor_fold_gaia_b158(&WHERE_IS_THE_LOVE_TRITS);
         assert_eq!(witl_bytes, 2);
         assert_eq!(witl_ratio, RationalPQ { p: 3, q: 1 });
         assert_eq!(witl_fold, (WHERE_IS_THE_LOVE_SPQT_BYTE0 ^ 2) as u64);
+
+        let (atts_fold, atts_bytes, atts_ratio) =
+            xor_fold_gaia_b158(&ALL_THE_THINGS_SHE_SAID_TRITS);
+        assert_eq!(atts_bytes, 2);
+        assert_eq!(atts_ratio, RationalPQ { p: 3, q: 1 });
+        assert_eq!(atts_fold, (ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0 ^ 2) as u64);
+        assert_eq!(
+            WHERE_IS_THE_LOVE_SPQT_BYTE0 + 81,
+            ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0
+        );
 
         // 4. Environment entropy collector + 64B LitanyWireFrame sealing
         let ent_wire = seal_env_entropy_litany_wire_64b(0x2003_0062);
