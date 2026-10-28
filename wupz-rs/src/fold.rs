@@ -54,6 +54,7 @@ mod zig {
         pub fn wupz_xor_fold(ptr: *const u8, len: usize) -> u64;
         pub fn wupz_byte_diff(a: *const u8, b: *const u8, len: usize) -> u64;
         pub fn wupz_popcount(ptr: *const u8, len: usize) -> u64;
+        pub fn wupz_reloc_delta_patch32(slots: *mut i32, count: usize, delta: i32) -> u64;
         pub fn wupz_seal_litany_wire_64b(
             out_wire: *mut LitanyWireFrame,
             raw_ptr: *const u8,
@@ -141,6 +142,34 @@ pub fn popcount(bytes: &[u8]) -> u64 {
 #[cfg(not(have_zig))]
 pub fn popcount(bytes: &[u8]) -> u64 {
     popcount_scalar(bytes)
+}
+
+/// Scalar reference for `wild`-style PC-relative 32-bit relocation displacement patching.
+pub fn reloc_delta_patch32_scalar(slots: &mut [i32], delta: i32) -> u64 {
+    for s in slots.iter_mut() {
+        *s = s.wrapping_add(delta);
+    }
+    // SAFETY: `i32` slice has valid initialized bytes of length `slots.len() * 4`.
+    let bytes = unsafe {
+        core::slice::from_raw_parts(slots.as_ptr().cast::<u8>(), slots.len() * 4)
+    };
+    xor_fold_scalar(bytes)
+}
+
+/// Apply a wrapping 32-bit displacement `delta` across `slots` in place and return
+/// the 64-bit XOR fold of the patched byte span (dispatches to Zig `@Vector(8, i32)` SIMD).
+#[cfg(have_zig)]
+pub fn reloc_delta_patch32(slots: &mut [i32], delta: i32) -> u64 {
+    if slots.is_empty() {
+        return 0;
+    }
+    // SAFETY: `slots` is a valid mutable slice for `slots.len()` elements.
+    unsafe { zig::wupz_reloc_delta_patch32(slots.as_mut_ptr(), slots.len(), delta) }
+}
+
+#[cfg(not(have_zig))]
+pub fn reloc_delta_patch32(slots: &mut [i32], delta: i32) -> u64 {
+    reloc_delta_patch32_scalar(slots, delta)
 }
 
 /// Default `kompress-super-ultra` gate byte (`0x62`).
@@ -546,5 +575,12 @@ mod tests {
         assert_eq!(len_val, 3);
         assert_eq!(ratio, RationalPQ { p: 5, q: 1 });
         assert_eq!(fold_val, xor_fold_scalar(packed_gaia));
+
+        let mut slots_a: [i32; 35] = core::array::from_fn(|i| (i as i32) * 16 - 512);
+        let mut slots_b = slots_a;
+        let f_vec = reloc_delta_patch32(&mut slots_a, 4096);
+        let f_sca = reloc_delta_patch32_scalar(&mut slots_b, 4096);
+        assert_eq!(f_vec, f_sca);
+        assert_eq!(slots_a, slots_b);
     }
 }

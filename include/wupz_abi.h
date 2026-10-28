@@ -63,6 +63,11 @@ uint64_t wupz_byte_diff(const uint8_t *a, const uint8_t *b, size_t len);
 /* wupz-zig: population count over a span (density hint). */
 uint64_t wupz_popcount(const uint8_t *ptr, size_t len);
 
+/* wupz-zig: wild-style SIMD PC-relative 32-bit relocation displacement patch.
+ * Adds `delta` (wrapping i32) to `count` little-endian int32_t relocation slots
+ * in `slots` and returns the 64-bit XOR fold of the patched byte span. */
+uint64_t wupz_reloc_delta_patch32(int32_t *slots, size_t count, int32_t delta);
+
 /* wupz-zig: seal a 64-byte cache-line-aligned Litany Wire frame at `gate` and `qt`.
  * Returns 1 on success, 0 on null pointer or invalid input. */
 uint32_t wupz_seal_litany_wire_64b(

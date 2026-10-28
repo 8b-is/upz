@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>upz — incremental linker, packer & beehive consolidator</title>
+<meta name="description" content="upz (wupz + up): experimental incremental ultra-fast linker, 64B cache-line LitanyWire packer, wild-linker performance kernels, and Top-100 repository consolidator. Zig 0.16, Rust, C11, Perl 5, Idris 2.">
+<meta name="theme-color" content="#030811">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="upz — kompress the link">
+<meta property="og:description" content="Incremental ultra-fast linker and compressor. 64B LitanyWireFrame, O(1) wild section bitsets, zero-alloc SIMD, Zig + Rust + Idris 2.">
+<meta property="og:image" content="./og.svg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --bg:#030811; --ink:#dbe6f2; --dim:#8ea3bb; --line:rgba(150,190,255,.16);
+    --ultra:#8fd0ff; --zeno:#c9a0ff; --gold:#e8c063; --mint:#62e6c9;
+    --mag:0.33;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style",Palatino,Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--serif);
+    overflow-x:hidden; -webkit-font-smoothing:antialiased;
+  }
+  #field{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+  .veil{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 30%,transparent 0%,rgba(3,8,17,.35) 55%,rgba(3,8,17,.88) 100%)}
+  main{position:relative;z-index:2;max-width:1160px;margin:0 auto;padding:7vh 20px 100px}
+  .eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.38em;text-transform:uppercase;color:var(--dim);text-align:center}
+  h1{
+    font-family:var(--mono);font-weight:600;text-align:center;margin:.4rem 0 .2rem;
+    font-size:clamp(3.4rem,13vw,8.4rem);letter-spacing:.14em;line-height:.95;
+    color:#f2f8ff;
+    text-shadow:0 0 26px rgba(143,208,255,.35),0 0 90px rgba(75,123,255,.25);
+  }
+  body[data-mode="zeno"] h1{color:#fff6e2;text-shadow:0 0 26px rgba(201,160,255,.4),0 0 90px rgba(232,192,99,.3)}
+  .tagline{text-align:center;font-style:italic;color:var(--dim);font-size:clamp(1rem,2.3vw,1.22rem);margin:0 auto;max-width:54ch}
+  .kbd{font-family:var(--mono);font-size:.72rem;color:var(--mint);letter-spacing:.16em}
+  .cta{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap;margin:2rem 0 3rem}
+  .cta a{
+    font-family:var(--mono);font-size:.76rem;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--mint);text-decoration:none;border:1px solid rgba(98,230,201,.4);
+    border-radius:10px;padding:.68rem 1.1rem;background:rgba(98,230,201,.06);
+    transition:transform .15s,border-color .15s,background .15s;
+  }
+  .cta a:hover{transform:translateY(-2px);border-color:var(--mint);background:rgba(98,230,201,.12)}
+  .panel{
+    border:1px solid var(--line);border-radius:16px;padding:1.35rem 1.45rem;
+    background:linear-gradient(180deg,rgba(10,18,32,.76),rgba(6,10,20,.78));
+    backdrop-filter:blur(14px);margin:0 0 1.1rem;
+  }
+  .grid{display:grid;gap:1.1rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  h2{font-family:var(--mono);font-size:.8rem;letter-spacing:.26em;text-transform:uppercase;color:var(--ultra);margin:0 0 .8rem}
+  body[data-mode="zeno"] h2{color:var(--zeno)}
+  p{line-height:1.68;color:#c6d3e2;margin:0 0 .75rem}
+  p.small{font-size:.84rem;color:var(--dim)}
+  code{font-family:var(--mono);font-size:.78rem;color:var(--ultra)}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.74rem}
+  td,th{text-align:left;padding:.42rem .35rem;border-bottom:1px solid var(--line);color:#c6d3e2}
+  th{color:var(--dim);font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+  .ok{color:var(--mint)} .warn{color:var(--gold)} .open{color:var(--dim)}
+  .wire-hex{
+    font-family:var(--mono);font-size:.74rem;line-height:1.65;padding:.85rem 1rem;
+    border-radius:10px;border:1px solid var(--line);background:rgba(2,6,14,.75);
+    color:var(--mint);overflow-x:auto;white-space:pre;margin:.6rem 0;
+  }
+  .q-axes{display:grid;gap:.7rem;margin:.4rem 0 1rem}
+  .q-axis{display:grid;grid-template-columns:6.2rem 1fr 4.4rem;align-items:center;gap:.7rem;font-family:var(--mono);font-size:.72rem;color:var(--dim)}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--line),var(--ultra));outline:none}
+  body[data-mode="zeno"] input[type=range]{background:linear-gradient(90deg,var(--line),var(--zeno))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 14px rgba(143,208,255,.8);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff;cursor:pointer}
+  .q-out{font-family:var(--mono);font-size:clamp(.95rem,2.4vw,1.25rem);color:#fff;letter-spacing:.06em}
+  .q-glyphs{font-family:var(--mono);font-size:1.35rem;letter-spacing:.35rem;color:var(--gold)}
+  .q-meter{height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:.6rem}
+  .q-meter i{display:block;height:100%;width:calc(var(--mag) * 100%);background:linear-gradient(90deg,var(--mint),var(--gold))}
+  .controls{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-top:.4rem}
+  button{
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--dim);background:transparent;border:1px solid var(--line);border-radius:9px;
+    padding:.48rem .85rem;cursor:pointer;transition:color .15s,border-color .15s;
+  }
+  button[aria-pressed="true"]{color:#fff;border-color:var(--ultra);box-shadow:0 0 22px rgba(143,208,255,.25)}
+  body[data-mode="zeno"] button[aria-pressed="true"]{border-color:var(--zeno);box-shadow:0 0 22px rgba(201,160,255,.3)}
+  footer{
+    position:relative;z-index:2;padding:2.6rem 1.5rem;text-align:center;font-family:var(--mono);
+    font-size:.72rem;color:#a59fc4;background:rgba(5,6,10,.92);border-top:1px solid var(--line);
+  }
+  footer .lane{text-transform:uppercase;letter-spacing:.28em;color:var(--zeno);font-weight:600;margin-bottom:.45rem}
+  footer nav{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;font-size:.7rem;margin-top:1rem}
+  footer nav a{color:#a59fc4;text-decoration:none}
+  footer nav a:hover{color:var(--mint)}
+  footer .law{font-size:.62rem;letter-spacing:.16em;color:#7f7c99;margin-top:1.2rem}
+</style>
+</head>
+<body data-mode="ultra">
+<canvas id="field" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
+
+<main>
+  <div class="eyebrow">8b-is/upz · incremental linker + packer + beehive consolidator</div>
+  <h1>UPZ</h1>
+  <p class="tagline">ultra-evolved incremental linker and compressor — pack during layout, seal on a 64B cache line.
+    <span class="kbd">up + w(ild) + UPX + z(ig)</span></p>
+
+  <div class="cta">
+    <a href="https://github.com/8b-is/upz">8b-is/upz repo</a>
+    <a href="https://github.com/8b-is/wupz">8b-is/wupz</a>
+    <a href="https://github.com/8b-is/up">8b-is/up</a>
+    <a href="https://github.com/8b-is/upz/blob/main/BENCHMARKS.md">benchmarks</a>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>the upz thesis</h2>
+      <p>A linker already computes, for every byte, its final address and relocated value.
+        <code>upz</code> keeps those facts as a first-class <em>layout plan</em>, packs sections
+        in 4096B QAT windows during layout, and seals each pass inside a 64-byte cache-line-aligned
+        <code>LitanyWireFrame</code> at gate <code>0x62</code>.</p>
+      <p class="small">Zig 0.16 SIMD · Rust core · C11 ABI v1 · Perl 5 TAP · Idris 2 QTT proofs</p>
+      <p class="small">100% deterministic integer <code>RationalPQ (p/q)</code> arithmetic — zero IEEE-754 float drift.</p>
+    </section>
+
+    <section class="panel">
+      <h2>verification & throughput receipts</h2>
+      <table>
+        <tr><th>subsystem</th><th>measured / verified</th><th>status</th></tr>
+        <tr><td><code>xor_fold</code> (Zig SIMD)</td><td>39.49 GiB/s (13.5x vs scalar)</td><td class="ok">verified</td></tr>
+        <tr><td><code>popcount</code> (Zig SIMD)</td><td>37.34 GiB/s (3.2x vs scalar)</td><td class="ok">verified</td></tr>
+        <tr><td><code>byte_diff</code> (Zig SIMD)</td><td>16.86 GiB/s (3.7x vs scalar)</td><td class="ok">verified</td></tr>
+        <tr><td><code>reloc_delta_patch32</code></td><td>dual <code>@Vector(8, i32)</code> PC32</td><td class="ok">parity</td></tr>
+        <tr><td><code>LitanyWireFrame</code></td><td>64B @ <code>align(64)</code> · gate <code>0x62</code></td><td class="ok">sealed</td></tr>
+        <tr><td>QAT window reuse</td><td><code>1/2 -> 15/16 -> 31/32</code></td><td class="ok">zero-float</td></tr>
+        <tr><td>Top-100 Beehive</td><td>100 repos -> 6124B plan image</td><td class="ok">1/1 lanes</td></tr>
+      </table>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>wild-linker performance tricks (inline review & fixes)</h2>
+    <table>
+      <tr><th>hot path</th><th>previous bottleneck</th><th>wild-inspired inline fix in upz</th><th>complexity</th></tr>
+      <tr>
+        <td><code>LayoutPlan::section(id)</code></td>
+        <td>Linear <code>.iter().find()</code> on every lookup inside <code>changed_sections</code></td>
+        <td>Direct <code>O(1)</code> dense array index fast path (<code>sections.get(id.0)</code>) with fallback scan</td>
+        <td class="ok">O(N^2) -> O(N)</td>
+      </tr>
+      <tr>
+        <td><code>blocks_to_repack</code></td>
+        <td><code>BTreeSet&lt;SectionId&gt;</code> heap node allocation + tree pointer chasing</td>
+        <td>Flat L1-resident <code>SectionBitSet</code> (<code>Vec&lt;u64&gt;</code> word bitmask, 1 shift+mask per cover)</td>
+        <td class="ok">O(log C) -> O(1)</td>
+      </tr>
+      <tr>
+        <td><code>Arena::alloc_aligned</code></td>
+        <td>Byte-granular bump cursor could split 64B cache lines across SIMD loads</td>
+        <td>Power-of-two aligned bump allocation (<code>alloc_aligned(len, 64)</code>) with zero heap growth</td>
+        <td class="ok">0 allocs · align(64)</td>
+      </tr>
+      <tr>
+        <td><code>LayoutPlan::digest</code></td>
+        <td>Byte-by-byte FNV loop over section name characters</td>
+        <td>Word-wide SIMD <code>fold::xor_fold(name.as_bytes())</code> mixed at 39.49 GiB/s</td>
+        <td class="ok">8B-64B / step</td>
+      </tr>
+      <tr>
+        <td><code>prefix_sum_section_addrs</code> &amp; <code>reloc_delta_patch32</code></td>
+        <td>Manual per-section address cursor &amp; scalar relocation displacement loop</td>
+        <td>Single-pass aligned prefix-sum sweep + Zig <code>@Vector(8, i32)</code> 16-slot/step PC32 delta patch</td>
+        <td class="ok">SIMD 64B / step</td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>interactive 64-byte LitanyWireFrame &amp; SPQT (base-243) inspector</h2>
+    <p class="small">Adjust raw/packed byte lengths or ternary axes below to compute the live 64-byte
+      cache-line-aligned <code>LitanyWireFrame</code> (32B <code>0x62</code> witness + 16B disjoint
+      <code>BFP-64</code> bitplanes at <code>qt:55</code> + 8B GCD-reduced <code>RationalPQ</code> +
+      3B <code>1.585 bits/trit</code> <code>SPQT</code> base-243 root + 16-bit wire seal).</p>
+    <div class="q-axes">
+      <label class="q-axis"><span>raw bytes</span><input id="w-raw" type="range" min="199" max="32768" step="1" value="3761"><span id="w-raw-v">3761</span></label>
+      <label class="q-axis"><span>packed B</span><input id="w-pack" type="range" min="199" max="32768" step="1" value="3314"><span id="w-pack-v">3314</span></label>
+      <label class="q-axis"><span>valence</span><input id="q-v" type="range" min="-1" max="1" step="0.01" value="0.8"><span id="q-v-v">+0.80</span></label>
+      <label class="q-axis"><span>arousal</span><input id="q-a" type="range" min="-1" max="1" step="0.01" value="0.1"><span id="q-a-v">+0.10</span></label>
+      <label class="q-axis"><span>dominance</span><input id="q-d" type="range" min="-1" max="1" step="0.01" value="0"><span id="q-d-v">+0.00</span></label>
+    </div>
+    <div class="controls" style="margin-bottom:.7rem">
+      <button type="button" data-preset="3761,3314">upz (3761/3314)</button>
+      <button type="button" data-preset="6554,199">wupz (6554/199)</button>
+      <button type="button" data-preset="3900,4000">zenUltraCooker (39/40)</button>
+      <button type="button" data-preset="3100,3200">QAT window (31/32)</button>
+      <button type="button" data-preset="9223,7031">wa-catalog (9223/7031)</button>
+    </div>
+    <div class="q-glyphs" id="q-glyphs">+ 0 0</div>
+    <div class="q-out" id="q-out">qt:01 · p/q = 3761/3314 · SPQT(243) = [214, 149, 241]</div>
+    <div class="wire-hex" id="wire-hex">loading 64B LitanyWireFrame...</div>
+    <div class="q-meter" aria-hidden="true"><i></i></div>
+  </section>
+
+  <section class="panel">
+    <h2>field controls</h2>
+    <p class="small">Move the pointer or click to emit a witness pulse. Switch palettes between
+      <code>ultra</code> and <code>zeno</code>.</p>
+    <div class="controls">
+      <button id="mode-ultra" aria-pressed="true">ultra</button>
+      <button id="mode-zeno" aria-pressed="false">zeno</button>
+      <label class="q-axis" style="grid-template-columns:auto 1fr;max-width:320px">
+        <span>intensity</span>
+        <input id="intensity" type="range" min="0.2" max="2" step="0.05" value="1">
+      </label>
+    </div>
+  </section>
+</main>
+
+<footer role="contentinfo">
+  <div class="lane">8b-is constellation · upz sovereign linker &amp; packer</div>
+  <nav aria-label="Repository links">
+    <a href="https://github.com/8b-is/upz">8b-is/upz</a> ·
+    <a href="https://github.com/8b-is/wupz">8b-is/wupz</a> ·
+    <a href="https://github.com/8b-is/up">8b-is/up</a> ·
+    <a href="https://github.com/8b-is/pldev">8b-is/pldev</a> ·
+    <a href="https://github.com/8b-is/Apollo-11">8b-is/Apollo-11</a> ·
+    <a href="https://github.com/8b-is/crabcc">8b-is/crabcc</a> ·
+    <a href="https://github.com/8b-is/8b-kit">8b-is/8b-kit</a>
+  </nav>
+  <div class="law">{-1, 0, +1} · gate 0x62 · 64B LitanyWire · zero-float p/q · prove it, don't assert it</div>
+</footer>
+
+<script src="./main.js" defer></script>
+</body>
+</html>

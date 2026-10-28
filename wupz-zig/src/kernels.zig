@@ -149,6 +149,39 @@ pub fn popcount(bytes: []const u8) u64 {
     return count;
 }
 
+// ── relocDeltaPatch32: wild-style SIMD PC32 relocation displacement patch ───
+
+/// Scalar reference: add `delta` (wrapping i32) to each slot and return the xorFold
+/// of the patched byte span.
+pub fn relocDeltaPatch32Scalar(slots: []i32, delta: i32) u64 {
+    for (slots) |*s| {
+        s.* +%= delta;
+    }
+    return xorFoldScalar(std.mem.sliceAsBytes(slots));
+}
+
+/// Vectorized: dual @Vector(8, i32) lanes (64B / 16 slots per step) applying
+/// wrapping 32-bit relative displacement adjustments in place, followed by SIMD xorFold.
+pub fn relocDeltaPatch32(slots: []i32, delta: i32) u64 {
+    const vdelta: @Vector(8, i32) = @splat(delta);
+    var i: usize = 0;
+    while (i + 16 <= slots.len) : (i += 16) {
+        const v0: @Vector(8, i32) = slots[i..][0..8].*;
+        const v1: @Vector(8, i32) = slots[i + 8 ..][0..8].*;
+        slots[i..][0..8].* = v0 +% vdelta;
+        slots[i + 8 ..][0..8].* = v1 +% vdelta;
+    }
+    if (i + 8 <= slots.len) {
+        const v0: @Vector(8, i32) = slots[i..][0..8].*;
+        slots[i..][0..8].* = v0 +% vdelta;
+        i += 8;
+    }
+    while (i < slots.len) : (i += 1) {
+        slots[i] +%= delta;
+    }
+    return xorFold(std.mem.sliceAsBytes(slots));
+}
+
 // ── Deterministic p/q Rational Kernel & SPQT (1.585 bits/trit base-243) ─────
 
 pub fn gcdU64(a: u64, b: u64) u64 {
@@ -508,6 +541,13 @@ export fn wupz_popcount(ptr_opt: ?[*]const u8, len: usize) u64 {
     return popcount(ptr[0..len]);
 }
 
+export fn wupz_reloc_delta_patch32(slots_opt: ?[*]i32, count: usize, delta: i32) u64 {
+    defer scrubCallerRegisters();
+    if (count == 0) return 0;
+    const slots = slots_opt orelse return 0;
+    return relocDeltaPatch32(slots[0..count], delta);
+}
+
 export fn wupz_seal_litany_wire_64b(
     out_opt: ?*LitanyWireFrame,
     raw_opt: ?[*]const u8,
@@ -588,6 +628,21 @@ test "popcount matches the scalar reference" {
     var buf: [512]u8 = undefined;
     fill(buf[0..], 0xDEAD_BEEF_CAFE_F00D);
     try std.testing.expectEqual(popcountScalar(buf[0..]), popcount(buf[0..]));
+}
+
+test "relocDeltaPatch32 matches the scalar reference across every count" {
+    var a: [137]i32 = undefined;
+    var b: [137]i32 = undefined;
+    for (&a, &b, 0..) |*sa, *sb, idx| {
+        const v: i32 = @bitCast(@as(u32, @truncate(idx *% 0x9E37_79B9 +% 0x1000)));
+        sa.* = v;
+        sb.* = v;
+    }
+    const delta: i32 = -4096;
+    const fold_vec = relocDeltaPatch32(a[0..], delta);
+    const fold_sca = relocDeltaPatch32Scalar(b[0..], delta);
+    try std.testing.expectEqual(fold_sca, fold_vec);
+    try std.testing.expectEqualSlices(i32, b[0..], a[0..]);
 }
 
 test "xorFold detects a single flipped byte" {
