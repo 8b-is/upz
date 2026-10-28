@@ -68,6 +68,14 @@ uint64_t wupz_popcount(const uint8_t *ptr, size_t len);
  * in `slots` and returns the 64-bit XOR fold of the patched byte span. */
 uint64_t wupz_reloc_delta_patch32(int32_t *slots, size_t count, int32_t delta);
 
+/* wupz-zig: 18-stage integer CORDIC atan2(y, x) in Z_{2^32}
+ * (from 8b-is/polar-densification LaserPhoenixPolarLattice). */
+uint32_t wupz_cordic_atan2_u32(int32_t y, int32_t x);
+
+/* wupz-zig: harvest live environment/OS entropy + timer/ASLR jitter + the
+ * 6-register "Where Is The Love?" ternary signal and return its 64-bit XOR fold. */
+uint64_t wupz_collect_env_entropy_fold(uint64_t extra_seed);
+
 /* wupz-zig: seal a 64-byte cache-line-aligned Litany Wire frame at `gate` and `qt`.
  * Returns 1 on success, 0 on null pointer or invalid input. */
 uint32_t wupz_seal_litany_wire_64b(

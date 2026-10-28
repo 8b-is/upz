@@ -123,7 +123,7 @@ sub seal_litany_wire_64b {
     return $prefix62 . pack("v", $seal16);
 }
 
-say "1..7";
+say "1..8";
 
 my $raw = "\x48" x 3761;
 my $packed = "\x20" x 3314;
@@ -150,3 +150,14 @@ say((($pos & $neg) == 0 && ($pos | $neg) == FOLD_KOMPRESS) ? "ok 6 - BFP-64 disj
 
 my $gate_byte = ord(substr($wire, 24, 1));
 say($gate_byte == GATE_0X62 ? "ok 7 - Gate 0x62 witness locked" : "not ok 7");
+
+# 8. "Where Is The Love?" — The Black Eyed Peas (Elephunk, 2003): [+1, +1, +1, +1, 0, +1]
+my @witl_trits = (1, 1, 1, 1, 0, 1);
+my $witl_b0 = 0;
+my $pow3 = 1;
+for my $i (0 .. 4) {
+    my $digit = $witl_trits[$i] < 0 ? 0 : ($witl_trits[$i] == 0 ? 1 : 2);
+    $witl_b0 += $digit * $pow3;
+    $pow3 *= 3;
+}
+say($witl_b0 == 161 ? "ok 8 - Where Is The Love (Elephunk, 2003) 6-register signal [+1,+1,+1,+1,0,+1] -> SPQT 0xA1 (161)" : "not ok 8");

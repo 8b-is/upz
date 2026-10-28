@@ -55,6 +55,8 @@ mod zig {
         pub fn wupz_byte_diff(a: *const u8, b: *const u8, len: usize) -> u64;
         pub fn wupz_popcount(ptr: *const u8, len: usize) -> u64;
         pub fn wupz_reloc_delta_patch32(slots: *mut i32, count: usize, delta: i32) -> u64;
+        pub fn wupz_cordic_atan2_u32(y: i32, x: i32) -> u32;
+        pub fn wupz_collect_env_entropy_fold(extra_seed: u64) -> u64;
         pub fn wupz_seal_litany_wire_64b(
             out_wire: *mut LitanyWireFrame,
             raw_ptr: *const u8,
@@ -483,6 +485,163 @@ pub fn verify_litany_wire_64b(
     byte_diff(a, b) == 0
 }
 
+// ── 8b-is/polar-densification + MLX-QUANT-GAIA + Where Is The Love + Entropy ─
+
+/// Precomputed 18-stage integer CORDIC `atan(2^-i)` table in `Z_{2^32}` (`2*pi == 2^32`).
+/// Zero floating-point operations at compile time or runtime.
+pub const CORDIC_ATAN_U32: [u32; 18] = [
+    536_870_912,
+    316_933_406,
+    167_458_907,
+    85_004_756,
+    42_667_331,
+    21_354_465,
+    10_679_838,
+    5_340_245,
+    2_670_163,
+    1_335_087,
+    667_544,
+    333_772,
+    166_886,
+    83_443,
+    41_722,
+    20_861,
+    10_430,
+    5_215,
+];
+
+/// Scalar reference for 18-stage integer CORDIC `atan2(y, x)` in `Z_{2^32}`.
+pub const fn cordic_atan2_u32_scalar(y: i32, x: i32) -> u32 {
+    if x == 0 && y == 0 {
+        return 0;
+    }
+    let xi = x as i64;
+    let yi = y as i64;
+    let (mut x_cur, mut y_cur, mut angle): (i64, i64, u32) = if xi >= 0 {
+        (xi << 16, yi << 16, 0)
+    } else if yi >= 0 {
+        (yi << 16, (-xi) << 16, 1u32 << 30)
+    } else {
+        ((-yi) << 16, xi << 16, 3u32 << 30)
+    };
+
+    let mut i = 0usize;
+    while i < 18 {
+        let x_shift = x_cur >> i;
+        let y_shift = y_cur >> i;
+        let step = CORDIC_ATAN_U32[i];
+        if y_cur >= 0 {
+            x_cur += y_shift;
+            y_cur -= x_shift;
+            angle = angle.wrapping_add(step);
+        } else {
+            x_cur -= y_shift;
+            y_cur += x_shift;
+            angle = angle.wrapping_sub(step);
+        }
+        i += 1;
+    }
+    angle
+}
+
+/// 18-stage integer CORDIC `atan2(y, x)` in `Z_{2^32}` (dispatches to Zig when linked).
+#[cfg(have_zig)]
+pub fn cordic_atan2_u32(y: i32, x: i32) -> u32 {
+    unsafe { zig::wupz_cordic_atan2_u32(y, x) }
+}
+
+#[cfg(not(have_zig))]
+pub fn cordic_atan2_u32(y: i32, x: i32) -> u32 {
+    cordic_atan2_u32_scalar(y, x)
+}
+
+/// Zero-float `p/q` equivalent of `MLX-QUANT`'s `quantize_ternary_optimal_groupwise`:
+///   1. Computes mean absolute magnitude `mu = (1/N) * sum(|x_i|)` in `Q16`.
+///   2. Starts from the L2-optimal Gaussian threshold `tau_0 = (68 * mu) / 100`.
+///   3. Runs 2 steps of coordinate-descent Lloyd-Max refinement:
+///      `alpha = sum_{|x_i| > tau} |x_i| / N_nz`, `tau = alpha / 2`.
+///   4. Writes balanced trits `{-1, 0, +1}` into `out_trits` and returns `RationalPQ(alpha, 65536)`.
+pub fn quantize_groupwise_l2_ternary_pq(values_q16: &[i32], out_trits: &mut [i8]) -> RationalPQ {
+    let n = values_q16.len().min(out_trits.len());
+    if n == 0 {
+        return RationalPQ { p: 0, q: 1 };
+    }
+    let mut abs_sum = 0u64;
+    for &v in &values_q16[..n] {
+        abs_sum += (v as i64).unsigned_abs();
+    }
+    let mean_abs = abs_sum / (n as u64);
+    let mut tau = (mean_abs * 68) / 100;
+    let mut alpha = mean_abs;
+
+    for _ in 0..2 {
+        let mut nz_sum = 0u64;
+        let mut nz_count = 0u64;
+        for &v in &values_q16[..n] {
+            let av = (v as i64).unsigned_abs();
+            if av > tau {
+                nz_sum += av;
+                nz_count += 1;
+            }
+        }
+        alpha = if nz_count > 0 { nz_sum / nz_count } else { mean_abs };
+        tau = alpha / 2;
+    }
+
+    for (dst, &v) in out_trits[..n].iter_mut().zip(&values_q16[..n]) {
+        let av = (v as i64).unsigned_abs();
+        *dst = if av <= tau {
+            0
+        } else if v > 0 {
+            1
+        } else {
+            -1
+        };
+    }
+    RationalPQ::reduce(alpha, 65_536)
+}
+
+/// The 6-register ternary signal from `"Where Is The Love?" — The Black Eyed Peas` (`Elephunk`, `2003`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=0, source=+1]`.
+pub const WHERE_IS_THE_LOVE_TRITS: [i8; 6] = [1, 1, 1, 1, 0, 1];
+/// Release year (`2003`) for `"Where Is The Love?"` (`Elephunk`).
+pub const WHERE_IS_THE_LOVE_YEAR: u16 = 2003;
+/// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`:
+/// `2*1 + 2*3 + 2*9 + 2*27 + 1*81 = 161` (`0xA1`).
+pub const WHERE_IS_THE_LOVE_SPQT_BYTE0: u8 = 161;
+
+/// Harvest live environment entropy around the process (`ASLR` + `"Where Is The Love?"` 6-register
+/// ternary signal + `CORDIC` constants + `extra_seed`) and return its 64-bit XOR fold witness.
+#[cfg(have_zig)]
+pub fn collect_env_entropy_fold(extra_seed: u64) -> u64 {
+    unsafe { zig::wupz_collect_env_entropy_fold(extra_seed) }
+}
+
+#[cfg(not(have_zig))]
+pub fn collect_env_entropy_fold(extra_seed: u64) -> u64 {
+    let stack_anchor = 0x2003_0062u64;
+    let stack_addr = (&stack_anchor as *const u64 as usize) as u64;
+    let (witl_fold, _, _) = xor_fold_gaia_b158(&WHERE_IS_THE_LOVE_TRITS);
+    let mut buf = [0u8; 32];
+    buf[0..8].copy_from_slice(&(stack_addr ^ 0x9E37_79B9_7F4A_7C15).to_le_bytes());
+    buf[8..16].copy_from_slice(&(witl_fold ^ (WHERE_IS_THE_LOVE_YEAR as u64)).to_le_bytes());
+    buf[16..24].copy_from_slice(&(extra_seed ^ FOLD_0X48031A0D4C054E69).to_le_bytes());
+    buf[24..32].copy_from_slice(&FOLD_0XE1034E575C371AB0.to_le_bytes());
+    let fold = xor_fold_scalar(&buf);
+    if fold == 0 { FOLD_0XE1034E575C371AB0 } else { fold }
+}
+
+/// Seal live environment entropy and the `"Where Is The Love?"` (`Elephunk`, `2003`)
+/// 6-register ternary signal into a 64-byte cache-line-aligned `LitanyWireFrame` at gate `0x62`.
+pub fn seal_env_entropy_litany_wire_64b(extra_seed: u64) -> LitanyWireFrame {
+    let ent_fold = collect_env_entropy_fold(extra_seed);
+    let mut raw = [0u8; 16];
+    raw[0..8].copy_from_slice(&ent_fold.to_le_bytes());
+    raw[8..16].copy_from_slice(&FOLD_0XE1034E575C371AB0.to_le_bytes());
+    let packed = [WHERE_IS_THE_LOVE_SPQT_BYTE0, 2u8];
+    seal_litany_wire_64b(&raw, &packed, GATE_0X62, QUANT_QT55)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -582,5 +741,42 @@ mod tests {
         let f_sca = reloc_delta_patch32_scalar(&mut slots_b, 4096);
         assert_eq!(f_vec, f_sca);
         assert_eq!(slots_a, slots_b);
+    }
+
+    #[test]
+    fn polar_densification_mlx_quant_gaia_where_is_the_love_and_entropy() {
+        // 1. Zig/Rust CORDIC Z_{2^32} parity across 4 Sony nanowire polarizer double-angles
+        for &(y, x, expected_quadrant) in &[
+            (0i32, 65536i32, 0u32),
+            (65536, 0, 1),
+            (0, -65536, 2),
+            (-65536, 0, 3),
+        ] {
+            let p_zig = cordic_atan2_u32(y, x);
+            let p_sca = cordic_atan2_u32_scalar(y, x);
+            assert_eq!(p_zig, p_sca);
+            let quad = (p_zig.wrapping_add(0x2000_0000) >> 30) & 3;
+            assert_eq!(quad, expected_quadrant);
+        }
+
+        // 2. MLX-QUANT-GAIA L2-optimal group-wise ternary quantizer
+        let weights_q16 = [65536i32, -65536, 2048, 58982, -62259, 0, 61000, -59000];
+        let mut out_trits = [0i8; 8];
+        let scale_pq = quantize_groupwise_l2_ternary_pq(&weights_q16, &mut out_trits);
+        assert_eq!(out_trits, [1, -1, 0, 1, -1, 0, 1, -1]);
+        assert!(scale_pq.p > 0 && scale_pq.q > 0);
+
+        // 3. "Where Is The Love?" — The Black Eyed Peas (Elephunk, 2003) 6-register signal
+        let (witl_fold, witl_bytes, witl_ratio) = xor_fold_gaia_b158(&WHERE_IS_THE_LOVE_TRITS);
+        assert_eq!(witl_bytes, 2);
+        assert_eq!(witl_ratio, RationalPQ { p: 3, q: 1 });
+        assert_eq!(witl_fold, (WHERE_IS_THE_LOVE_SPQT_BYTE0 ^ 2) as u64);
+
+        // 4. Environment entropy collector + 64B LitanyWireFrame sealing
+        let ent_wire = seal_env_entropy_litany_wire_64b(0x2003_0062);
+        assert_eq!(ent_wire.frame32[24], GATE_0X62);
+        assert_eq!(ent_wire.ratio_p, 8);
+        assert_eq!(ent_wire.ratio_q, 1);
+        assert_eq!(ent_wire.bfp64_pos & ent_wire.bfp64_neg, 0);
     }
 }
