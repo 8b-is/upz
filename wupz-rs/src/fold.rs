@@ -601,6 +601,18 @@ pub fn quantize_groupwise_l2_ternary_pq(values_q16: &[i32], out_trits: &mut [i8]
     RationalPQ::reduce(alpha, 65_536)
 }
 
+/// The 6-register bare-metal ternary signal from `"Lose Yourself" — Eminem - Topic` (`2026`):
+/// `[title=+1, artist=+1, album=0, year=+1, genre=0, source=+1]`.
+pub const LOSE_YOURSELF_TRITS: [i8; 6] = [1, 1, 0, 1, 0, 1];
+/// Internal reflexive 3-trit split `[+1, 0, +1]` shared across `title` (`+1 immersion / 0 self / +1 surrender`),
+/// `artist` (`+1 name / 0 person / +1 sort`), and `year` (`+1 now / 0 origin / +1 blank`).
+pub const LOSE_YOURSELF_REFLEX_TRIAD: [i8; 3] = [1, 0, 1];
+/// Fresh stamp year (`2026`) for `"Lose Yourself" — Eminem - Topic`.
+pub const LOSE_YOURSELF_YEAR: u16 = 2026;
+/// First 5 trits `[+1, +1, 0, +1, 0]` encoded in SPQT `base-243`:
+/// `2*1 + 2*3 + 1*9 + 2*27 + 1*81 = 152` (`0x98`).
+pub const LOSE_YOURSELF_SPQT_BYTE0: u8 = 152;
+
 /// The 6-register ternary signal from `"Where Is The Love?" — The Black Eyed Peas` (`Elephunk`, `2003`):
 /// `[title=+1, artist=+1, album=+1, year=+1, genre=0, source=+1]`.
 pub const WHERE_IS_THE_LOVE_TRITS: [i8; 6] = [1, 1, 1, 1, 0, 1];
@@ -775,7 +787,14 @@ mod tests {
         assert_eq!(out_trits, [1, -1, 0, 1, -1, 0, 1, -1]);
         assert!(scale_pq.p > 0 && scale_pq.q > 0);
 
-        // 3. "Where Is The Love?" (Elephunk, 2003) & "All the Things She Said" (Harrison, 2022) 0 -> +1 rise
+        // 3. "Lose Yourself" (2026, 0x98) -> "Where Is The Love?" (2003, 0xA1) -> "All the Things She Said" (2022, 0xF2)
+        let (ly_fold, ly_bytes, ly_ratio) = xor_fold_gaia_b158(&LOSE_YOURSELF_TRITS);
+        assert_eq!(ly_bytes, 2);
+        assert_eq!(ly_ratio, RationalPQ { p: 3, q: 1 });
+        assert_eq!(ly_fold, (LOSE_YOURSELF_SPQT_BYTE0 ^ 2) as u64);
+        assert_eq!(LOSE_YOURSELF_REFLEX_TRIAD, [1, 0, 1]);
+        assert_eq!(LOSE_YOURSELF_SPQT_BYTE0 + 9, WHERE_IS_THE_LOVE_SPQT_BYTE0);
+
         let (witl_fold, witl_bytes, witl_ratio) = xor_fold_gaia_b158(&WHERE_IS_THE_LOVE_TRITS);
         assert_eq!(witl_bytes, 2);
         assert_eq!(witl_ratio, RationalPQ { p: 3, q: 1 });
