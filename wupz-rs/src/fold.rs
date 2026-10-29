@@ -655,6 +655,14 @@ pub const ALL_NIGHTMARES_END_YEAR: u16 = 2026;
 /// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`: `161` (`0xA1`).
 pub const ALL_NIGHTMARES_END_SPQT_BYTE0: u8 = 161;
 
+/// The 6-register ternary signal from `"Lost in Shinjuku" — Greg Foat` (`2026`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=0, source=+1]`.
+pub const LOST_IN_SHINJUKU_TRITS: [i8; 6] = [1, 1, 1, 1, 0, 1];
+/// Release year (`2026`) for `"Lost in Shinjuku"` (`Greg Foat`).
+pub const LOST_IN_SHINJUKU_YEAR: u16 = 2026;
+/// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`: `161` (`0xA1`).
+pub const LOST_IN_SHINJUKU_SPQT_BYTE0: u8 = 161;
+
 /// The 6-register ternary signal from `"All the Things She Said - Single" — Harrison` (`2022`, `Dance`):
 /// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]` (`0 -> +1` genre rise).
 pub const ALL_THE_THINGS_SHE_SAID_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
@@ -918,6 +926,12 @@ mod tests {
         assert_eq!(witl_bytes, 2);
         assert_eq!(witl_ratio, RationalPQ { p: 3, q: 1 });
         assert_eq!(witl_fold, (WHERE_IS_THE_LOVE_SPQT_BYTE0 ^ 2) as u64);
+
+        let (lis_fold, lis_bytes, lis_ratio) = xor_fold_gaia_b158(&LOST_IN_SHINJUKU_TRITS);
+        assert_eq!(lis_bytes, 2);
+        assert_eq!(lis_ratio, RationalPQ { p: 3, q: 1 });
+        assert_eq!(lis_fold, (LOST_IN_SHINJUKU_SPQT_BYTE0 ^ 2) as u64);
+        assert_eq!(LOST_IN_SHINJUKU_YEAR, 2026);
 
         let (atts_fold, atts_bytes, atts_ratio) =
             xor_fold_gaia_b158(&ALL_THE_THINGS_SHE_SAID_TRITS);
