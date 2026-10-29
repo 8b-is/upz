@@ -671,6 +671,14 @@ pub const FIFTY_WAYS_TO_LOVE_YOUR_LIVER_TRACK_ID: u64 = 1_739_794_621;
 /// First 5 trits `[+1, +1, +1, +1, +1]` encoded in SPQT `base-243`: `242` (`0xF2`).
 pub const FIFTY_WAYS_TO_LOVE_YOUR_LIVER_SPQT_BYTE0: u8 = 242;
 
+/// The 6-register ternary signal from `"Copal (Hidden Empire 20yrs SVT Remix)" — Oliver Koletzki` (`1794565891`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]`.
+pub const COPAL_HIDDEN_EMPIRE_SVT_REMIX_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
+/// Apple Music track ID (`1794565891`) for `"Copal (Hidden Empire 20yrs SVT Remix)"` (`Oliver Koletzki`).
+pub const COPAL_HIDDEN_EMPIRE_SVT_REMIX_TRACK_ID: u64 = 1_794_565_891;
+/// First 5 trits `[+1, +1, +1, +1, +1]` encoded in SPQT `base-243`: `242` (`0xF2`).
+pub const COPAL_HIDDEN_EMPIRE_SVT_REMIX_SPQT_BYTE0: u8 = 242;
+
 /// The 6-register ternary signal from `"All the Things She Said - Single" — Harrison` (`2022`, `Dance`):
 /// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]` (`0 -> +1` genre rise).
 pub const ALL_THE_THINGS_SHE_SAID_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
