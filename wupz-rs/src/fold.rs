@@ -287,7 +287,7 @@ pub const fn unpack_spqt3b_to_word15(spqt: [u8; 3]) -> Option<u16> {
 /// Pack balanced ternary weights (`{-1, 0, +1}`) into a `.rodata.gaia.b158` section slice
 /// inside `arena` at 5 trits/byte (`base-243`, `3^5 = 243 <= 256`) with zero heap allocation.
 pub fn pack_gaia_b158_into<'a>(trits: &[i8], arena: &'a mut Arena) -> Option<&'a [u8]> {
-    let packed_len = (trits.len() + 4) / 5;
+    let packed_len = trits.len().div_ceil(5);
     let out = arena.alloc(packed_len)?;
     let mut idx = 0usize;
     let mut i = 0usize;
@@ -597,11 +597,7 @@ pub fn quantize_groupwise_l2_ternary_pq(values_q16: &[i32], out_trits: &mut [i8]
                 nz_count += 1;
             }
         }
-        alpha = if nz_count > 0 {
-            nz_sum / nz_count
-        } else {
-            mean_abs
-        };
+        alpha = nz_sum.checked_div(nz_count).unwrap_or(mean_abs);
         tau = alpha / 2;
     }
 
