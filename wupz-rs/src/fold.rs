@@ -663,6 +663,14 @@ pub const LOST_IN_SHINJUKU_YEAR: u16 = 2026;
 /// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`: `161` (`0xA1`).
 pub const LOST_IN_SHINJUKU_SPQT_BYTE0: u8 = 161;
 
+/// The 6-register ternary signal from `"Fifty Ways to Love Your Liver (feat. Jack the Rapper)" — Oliver Koletzki` (`1739794621`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]`.
+pub const FIFTY_WAYS_TO_LOVE_YOUR_LIVER_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
+/// Apple Music track ID (`1739794621`) for `"Fifty Ways to Love Your Liver (feat. Jack the Rapper)"` (`Oliver Koletzki`).
+pub const FIFTY_WAYS_TO_LOVE_YOUR_LIVER_TRACK_ID: u64 = 1_739_794_621;
+/// First 5 trits `[+1, +1, +1, +1, +1]` encoded in SPQT `base-243`: `242` (`0xF2`).
+pub const FIFTY_WAYS_TO_LOVE_YOUR_LIVER_SPQT_BYTE0: u8 = 242;
+
 /// The 6-register ternary signal from `"All the Things She Said - Single" — Harrison` (`2022`, `Dance`):
 /// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]` (`0 -> +1` genre rise).
 pub const ALL_THE_THINGS_SHE_SAID_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 1];
