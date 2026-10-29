@@ -81,7 +81,12 @@ fn main() {
     // archive. (The kernels are one object; there is nothing to merge.)
     let obj = out.join("wupz_kernels.o");
     let mut cmd = Command::new("zig");
-    cmd.arg("build-obj").arg(&src).args(["-O", "ReleaseFast"]);
+    // `-fPIC` is required on Linux: Rust links a PIE binary, and a non-PIC
+    // object fails with `relocation R_X86_64_32 cannot be used against local
+    // symbol`. It is harmless on the other targets and keeps one code path.
+    cmd.arg("build-obj")
+        .arg(&src)
+        .args(["-O", "ReleaseFast", "-fPIC"]);
     if let Some(zt) = cross_zig_target {
         cmd.args(["-target", zt]);
     }
