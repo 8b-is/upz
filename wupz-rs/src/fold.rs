@@ -664,6 +664,20 @@ pub const ALL_THE_THINGS_SHE_SAID_YEAR: u16 = 2022;
 /// `2*1 + 2*3 + 2*9 + 2*27 + 2*81 = 242` (`0xF2`, maximal 5-trit SPQT saturation).
 pub const ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0: u8 = 242;
 
+/// The 6-register ternary signal from `"Galactic Mantra (Liquid Soul remix)" — the family` (`2026`, `pAgb9NdNuyA`):
+/// `[title_mantra=+1, title_galactic=+1, credit_custody=+1, artist_family=+1, year_2026=+1, address_pointer=0]`.
+/// Because the first 5 registers are `+1` (`byte0 = 242 = 0xF2`) and the 6th register (`address`, an unresolved pointer)
+/// is `0` (`byte1 = 0 + 1 = 1`), its `.rodata.gaia.b158` XOR fold is `242 ^ 1 = 243 = 3^5` (`0xF3`), the exact `base-243` radix!
+pub const GALACTIC_MANTRA_TRITS: [i8; 6] = [1, 1, 1, 1, 1, 0];
+/// Forward-dated year (`2026`) for `"Galactic Mantra (Liquid Soul remix)" — the family`.
+pub const GALACTIC_MANTRA_YEAR: u16 = 2026;
+/// First 5 trits `[+1, +1, +1, +1, +1]` encoded in SPQT `base-243`: `242` (`0xF2`).
+pub const GALACTIC_MANTRA_SPQT_BYTE0: u8 = 242;
+/// Second SPQT byte (`address = 0` -> `0 + 1 = 1`): `0x01`, yielding `xor_fold = 0xF2 ^ 0x01 = 243 = 3^5` (`0xF3`).
+pub const GALACTIC_MANTRA_SPQT_BYTE1: u8 = 1;
+/// Exact `.rodata.gaia.b158` XOR fold `242 ^ 1 = 243 = 3^5` (`0xF3`).
+pub const GALACTIC_MANTRA_FOLD_243: u64 = 243;
+
 /// Harvest live environment entropy around the process (`ASLR` + `"Where Is The Love?"` 6-register
 /// ternary signal + `CORDIC` constants + `extra_seed`) and return its 64-bit XOR fold witness.
 #[cfg(have_zig)]
@@ -914,6 +928,15 @@ mod tests {
             WHERE_IS_THE_LOVE_SPQT_BYTE0 + 81,
             ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0
         );
+
+        let (gm_fold, gm_bytes, gm_ratio) = xor_fold_gaia_b158(&GALACTIC_MANTRA_TRITS);
+        assert_eq!(gm_bytes, 2);
+        assert_eq!(gm_ratio, RationalPQ { p: 3, q: 1 });
+        assert_eq!(
+            gm_fold,
+            (GALACTIC_MANTRA_SPQT_BYTE0 ^ GALACTIC_MANTRA_SPQT_BYTE1) as u64
+        );
+        assert_eq!(gm_fold, GALACTIC_MANTRA_FOLD_243); // 243 == 3^5 (SPQT base-243 radix!)
 
         // 4. Environment entropy collector + 64B LitanyWireFrame sealing
         let ent_wire = seal_env_entropy_litany_wire_64b(0x2003_0062);
