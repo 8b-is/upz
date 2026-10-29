@@ -292,7 +292,10 @@ pub fn seal_wigle_databomb_v3_custodian(
 ) -> WigleDataBombCell {
     let dlat = (lat_e7 as i64 - prev_lat_e7 as i64).unsigned_abs();
     let dlon = (lon_e7 as i64 - prev_lon_e7 as i64).unsigned_abs();
-    let dist_e7 = isqrt_u64(dlat.saturating_mul(dlat).saturating_add(dlon.saturating_mul(dlon)));
+    let dist_e7 = isqrt_u64(
+        dlat.saturating_mul(dlat)
+            .saturating_add(dlon.saturating_mul(dlon)),
+    );
 
     // Impossible-movement penalty: > 50,000 e7 units (~500m per 5s scan) demotes back to Record
     let stage = if dist_e7 > 50_000 || rssi_dbm < -85 {

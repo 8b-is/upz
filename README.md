@@ -33,6 +33,9 @@ An experimental **incremental ultra-fast linker, `kompress-super-ultra` packer, 
    - `verifiers/perl/upz_verify.pl` (`1..7` TAP verification suite).
    - `verifiers/idris/UpzProofs.idr` (Idris 2 QTT `0, 1, ω` proofs for `LitanyWireWitness`, `RationalPQ`, Kleene `+AND=1` / `~NAND=-1`, and `AKPHSemantics` `K-PAX / Képes` `DoubleEntendre` + `30-semmi` ternary signal resolution).
    - `up/src/main.zig` (Pure-Zig `0.16.0` sovereign machine helper, `up fleet`, and `up verify`).
+6. **Target-Aware Cross-Compilation (`WUPZ_CROSS_ZIG=1`) & Contextual Signal Resolution (`0x98 -> 0xA1 -> 0xF2`)**:
+   - `wupz-rs/build.rs` supports opt-in `WUPZ_CROSS_ZIG=1` cross-compilation (`zig build-obj -target <zig_target>` for `aarch64/x86_64` macOS/Linux/Android) while preserving default host-toolchain isolation.
+   - `WhereIsTheLoveContext` (`mood_trit`, `time_phase_trit`, `weather_trit`) and `compress_lived_emotion_to_title_fold` formalize why the static catalog `genre` register in `"Where Is The Love?"` (`Elephunk`, `2003`, `0xA1`) is `0` (`uncollapsed`) and how `[Emotion + Life] --kompress--> Song --kompress--> Title Location Query` seals into a 64B `LitanyWireFrame` at gate `0x62` (`3:1` compression ratio).
 
 ---
 

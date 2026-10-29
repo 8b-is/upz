@@ -9,10 +9,10 @@
 
 use crate::plan::{LayoutPlan, SectionId};
 use alloc::collections::BTreeSet;
-use alloc::vec;
-use alloc::vec::Vec;
 #[cfg(test)]
 use alloc::format;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// Maximum dense `SectionId` stored in the flat L1 `u64` word bitset before
 /// falling back to `BTreeSet` for sparse IDs. `65,536` sections = `1024` `u64` words (8 KiB).
@@ -328,8 +328,14 @@ mod tests {
         let layout = LayoutPlan {
             sections,
             blocks: vec![
-                Block { index: 0, covers: block0_covers },
-                Block { index: 1, covers: block1_covers },
+                Block {
+                    index: 0,
+                    covers: block0_covers,
+                },
+                Block {
+                    index: 1,
+                    covers: block1_covers,
+                },
             ],
             window_size: 4096,
         };

@@ -152,9 +152,8 @@ pub fn reloc_delta_patch32_scalar(slots: &mut [i32], delta: i32) -> u64 {
         *s = s.wrapping_add(delta);
     }
     // SAFETY: `i32` slice has valid initialized bytes of length `slots.len() * 4`.
-    let bytes = unsafe {
-        core::slice::from_raw_parts(slots.as_ptr().cast::<u8>(), slots.len() * 4)
-    };
+    let bytes =
+        unsafe { core::slice::from_raw_parts(slots.as_ptr().cast::<u8>(), slots.len() * 4) };
     xor_fold_scalar(bytes)
 }
 
@@ -295,7 +294,13 @@ pub fn pack_gaia_b158_into<'a>(trits: &[i8], arena: &'a mut Arena) -> Option<&'a
         let mut k = i;
         while k < chunk_end {
             let t = trits[k];
-            let digit = if t < 0 { 0u8 } else if t == 0 { 1u8 } else { 2u8 };
+            let digit = if t < 0 {
+                0u8
+            } else if t == 0 {
+                1u8
+            } else {
+                2u8
+            };
             byte_val = byte_val.wrapping_add(digit.wrapping_mul(pow3));
             pow3 = pow3.wrapping_mul(3);
             k += 1;
@@ -321,7 +326,13 @@ pub fn xor_fold_gaia_b158(trits: &[i8]) -> (u64, usize, RationalPQ) {
         let mut k = i;
         while k < chunk_end {
             let t = trits[k];
-            let digit = if t < 0 { 0u8 } else if t == 0 { 1u8 } else { 2u8 };
+            let digit = if t < 0 {
+                0u8
+            } else if t == 0 {
+                1u8
+            } else {
+                2u8
+            };
             byte_val = byte_val.wrapping_add(digit.wrapping_mul(pow3));
             pow3 = pow3.wrapping_mul(3);
             k += 1;
@@ -396,9 +407,8 @@ pub fn seal_litany_wire_64b_scalar(raw: &[u8], packed: &[u8], gate: u8, qt: u8) 
         wire_seal16: 0,
     };
     // SAFETY: `LitanyWireFrame` is `#[repr(C, align(64))]` with no uninitialized padding bytes.
-    let wire_bytes = unsafe {
-        core::slice::from_raw_parts((&wire as *const LitanyWireFrame).cast::<u8>(), 64)
-    };
+    let wire_bytes =
+        unsafe { core::slice::from_raw_parts((&wire as *const LitanyWireFrame).cast::<u8>(), 64) };
     wire.wire_seal16 = (xor_fold(&wire_bytes[0..62]) & 0xFFFF) as u16;
     wire
 }
@@ -476,9 +486,8 @@ pub fn verify_litany_wire_64b(
         return false;
     }
     let expected = seal_litany_wire_64b_scalar(raw, packed, gate, qt);
-    let a = unsafe {
-        core::slice::from_raw_parts((wire as *const LitanyWireFrame).cast::<u8>(), 64)
-    };
+    let a =
+        unsafe { core::slice::from_raw_parts((wire as *const LitanyWireFrame).cast::<u8>(), 64) };
     let b = unsafe {
         core::slice::from_raw_parts((&expected as *const LitanyWireFrame).cast::<u8>(), 64)
     };
@@ -584,7 +593,11 @@ pub fn quantize_groupwise_l2_ternary_pq(values_q16: &[i32], out_trits: &mut [i8]
                 nz_count += 1;
             }
         }
-        alpha = if nz_count > 0 { nz_sum / nz_count } else { mean_abs };
+        alpha = if nz_count > 0 {
+            nz_sum / nz_count
+        } else {
+            mean_abs
+        };
         tau = alpha / 2;
     }
 
@@ -657,7 +670,11 @@ pub fn collect_env_entropy_fold(extra_seed: u64) -> u64 {
     buf[16..24].copy_from_slice(&(extra_seed ^ FOLD_0X48031A0D4C054E69).to_le_bytes());
     buf[24..32].copy_from_slice(&FOLD_0XE1034E575C371AB0.to_le_bytes());
     let fold = xor_fold_scalar(&buf);
-    if fold == 0 { FOLD_0XE1034E575C371AB0 } else { fold }
+    if fold == 0 {
+        FOLD_0XE1034E575C371AB0
+    } else {
+        fold
+    }
 }
 
 /// Seal live environment entropy and the `"Where Is The Love?"` (`Elephunk`, `2003`)
@@ -669,6 +686,82 @@ pub fn seal_env_entropy_litany_wire_64b(extra_seed: u64) -> LitanyWireFrame {
     raw[8..16].copy_from_slice(&FOLD_0XE1034E575C371AB0.to_le_bytes());
     let packed = [WHERE_IS_THE_LOVE_SPQT_BYTE0, 2u8];
     seal_litany_wire_64b(&raw, &packed, GATE_0X62, QUANT_QT55)
+}
+
+/// Contextual environment triad (`mood`, `current_time`, `weather`) for resolving
+/// why the `genre` register in `"Where Is The Love?"` (`Elephunk`, `2003`) is `0` (`absent`)
+/// in the static record (`0xA1`) and only collapses to `{-1, 0, +1}` inside a lived moment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WhereIsTheLoveContext {
+    pub mood_trit: i8,
+    pub time_phase_trit: i8,
+    pub weather_trit: i8,
+}
+
+impl WhereIsTheLoveContext {
+    /// Uncollapsed static catalog state (`[0, 0, 0]` -> `genre = 0`, `SPQT_BYTE0 = 0xA1`).
+    pub const UNCOLLAPSED: Self = Self {
+        mood_trit: 0,
+        time_phase_trit: 0,
+        weather_trit: 0,
+    };
+
+    /// Resolve the contextual `genre` trit `{-1, 0, +1}` from `(mood + time_phase + weather)`.
+    #[inline]
+    pub const fn resolve_genre_trit(self) -> i8 {
+        let sum =
+            (self.mood_trit as i16) + (self.time_phase_trit as i16) + (self.weather_trit as i16);
+        if sum > 0 {
+            1
+        } else if sum < 0 {
+            -1
+        } else {
+            0
+        }
+    }
+
+    /// Produce the 6-register ternary vector `[title=+1, artist=+1, album=+1, year=+1, genre, source=+1]`
+    /// and its first-5-trit `SPQT` `base-243` byte (`0x50` for `-1`, `0xA1` for `0`, `0xF2` for `+1`).
+    #[inline]
+    pub const fn resolve_signal(self) -> ([i8; 6], u8) {
+        let g = self.resolve_genre_trit();
+        let trits = [1, 1, 1, 1, g, 1];
+        let g_u8 = (g + 1) as u8;
+        // 2*1 + 2*3 + 2*9 + 2*27 + g_u8*81 = 80 + 81 * g_u8
+        let spqt_byte0 = 80u8.wrapping_add(81u8.wrapping_mul(g_u8));
+        (trits, spqt_byte0)
+    }
+}
+
+/// 3-stage artistic `kompress` pipeline:
+///   `Artist: [Emotion + Life] --kompress--> Song --kompress--> Title Location Query ("Where Is The Love?")`
+/// Seals the lived wave into the compact title query at gate `0x62`.
+pub fn compress_lived_emotion_to_title_fold(
+    emotion_bytes: &[u8],
+    life_bytes: &[u8],
+    song_bytes: &[u8],
+    title_query: &[u8],
+) -> (u64, LitanyWireFrame) {
+    let emotion_fold = xor_fold(emotion_bytes);
+    let life_fold = xor_fold(life_bytes);
+    let song_fold = xor_fold(song_bytes);
+    let title_fold = xor_fold(title_query);
+
+    let mut lived_stage = [0u8; 24];
+    lived_stage[0..8].copy_from_slice(&emotion_fold.to_le_bytes());
+    lived_stage[8..16].copy_from_slice(&life_fold.to_le_bytes());
+    lived_stage[16..24].copy_from_slice(&song_fold.to_le_bytes());
+
+    let mut title_stage = [0u8; 8];
+    title_stage[0..8]
+        .copy_from_slice(&(title_fold ^ (WHERE_IS_THE_LOVE_SPQT_BYTE0 as u64)).to_le_bytes());
+
+    let wire = seal_litany_wire_64b(&lived_stage, &title_stage, GATE_0X62, QUANT_QT55);
+    let composite = emotion_fold
+        ^ life_fold.rotate_left(13)
+        ^ song_fold.rotate_left(29)
+        ^ title_fold.rotate_left(47);
+    (composite, wire)
 }
 
 #[cfg(test)]
@@ -739,20 +832,12 @@ mod tests {
         assert_eq!(wire.ratio_q, 3314);
         assert_eq!(wire.lanes_active, LANES_1_OF_1);
         assert!(verify_litany_wire_64b(
-            &wire,
-            &raw,
-            &packed,
-            GATE_0X62,
-            QUANT_QT55
+            &wire, &raw, &packed, GATE_0X62, QUANT_QT55
         ));
 
         wire.wire_seal16 ^= 0x0001;
         assert!(!verify_litany_wire_64b(
-            &wire,
-            &raw,
-            &packed,
-            GATE_0X62,
-            QUANT_QT55
+            &wire, &raw, &packed, GATE_0X62, QUANT_QT55
         ));
 
         let trits = [1i8, -1, 0, 1, -1, 1, 1, 0, -1, 0, 1, -1, 1, 0, -1];
@@ -824,5 +909,27 @@ mod tests {
         assert_eq!(ent_wire.ratio_p, 8);
         assert_eq!(ent_wire.ratio_q, 1);
         assert_eq!(ent_wire.bfp64_pos & ent_wire.bfp64_neg, 0);
+
+        // 5. Contextual genre resolution (mood, current_time, weather) & Lived->Song->Title kompress
+        let (_, b_uncollapsed) = WhereIsTheLoveContext::UNCOLLAPSED.resolve_signal();
+        assert_eq!(b_uncollapsed, WHERE_IS_THE_LOVE_SPQT_BYTE0); // 0xA1 (genre = 0)
+        let sunny_tokyo = WhereIsTheLoveContext {
+            mood_trit: 1,
+            time_phase_trit: 1,
+            weather_trit: 1,
+        };
+        let (_, b_risen) = sunny_tokyo.resolve_signal();
+        assert_eq!(b_risen, ALL_THE_THINGS_SHE_SAID_SPQT_BYTE0); // 0xF2 (genre = +1)
+
+        let (comp_fold, lived_wire) = compress_lived_emotion_to_title_fold(
+            b"empathy+sensitivity+wave",
+            b"12-node-family-constellation",
+            b"Elephunk-2003-collective-voice",
+            b"Where Is The Love?",
+        );
+        assert_ne!(comp_fold, 0);
+        assert_eq!(lived_wire.frame32[24], GATE_0X62);
+        assert_eq!(lived_wire.ratio_p, 3);
+        assert_eq!(lived_wire.ratio_q, 1);
     }
 }
