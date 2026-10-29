@@ -181,6 +181,10 @@ pub const FRAME_ABI_V1: u8 = 0x01;
 pub const QUANT_QT55: u8 = 0x55;
 /// Active `1/1` lane ratio word (`0x0101`).
 pub const LANES_1_OF_1: u16 = 0x0101;
+/// Active `4/4` multi-lane parallel ratio word (`0x0404`).
+pub const LANES_4_OF_4: u16 = 0x0404;
+/// Active `8/8` full-constellation parallel lane ratio word (`0x0808`).
+pub const LANES_8_OF_8: u16 = 0x0808;
 /// Canonical 64-bit `kompress-super-ultra` fold signature at `qt:55` and gate `0x62`.
 pub const FOLD_0XE1034E575C371AB0: u64 = 0xe103_4e57_5c37_1ab0;
 /// Top-100 `8b-is` sweep anchor fold (`0x48031a0d4c054e69`).
@@ -642,6 +646,14 @@ pub const IN_THE_END_TRITS: [i8; 6] = [1, 1, 1, 1, 0, 1];
 pub const IN_THE_END_YEAR: u16 = 2000;
 /// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`: `161` (`0xA1`).
 pub const IN_THE_END_SPQT_BYTE0: u8 = 161;
+
+/// The 6-register ternary signal from `"All Nightmares End" — Alan Walker & Walkers` (`2026`):
+/// `[title=+1, artist=+1, album=+1, year=+1, genre=0, source=+1]`.
+pub const ALL_NIGHTMARES_END_TRITS: [i8; 6] = [1, 1, 1, 1, 0, 1];
+/// Release year (`2026`) for `"All Nightmares End"` (`Alan Walker & Walkers`).
+pub const ALL_NIGHTMARES_END_YEAR: u16 = 2026;
+/// First 5 trits `[+1, +1, +1, +1, 0]` encoded in SPQT `base-243`: `161` (`0xA1`).
+pub const ALL_NIGHTMARES_END_SPQT_BYTE0: u8 = 161;
 
 /// The 6-register ternary signal from `"All the Things She Said - Single" — Harrison` (`2022`, `Dance`):
 /// `[title=+1, artist=+1, album=+1, year=+1, genre=+1, source=+1]` (`0 -> +1` genre rise).
