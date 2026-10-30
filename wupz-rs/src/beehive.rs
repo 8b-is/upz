@@ -86,14 +86,14 @@ pub struct BeehiveConsolidation {
 pub fn sweep_top_100_repos() -> Vec<RepoEntry> {
     let mut entries = Vec::with_capacity(TOP_100_COUNT);
     for idx in 0..TOP_100_COUNT {
-        let (name, raw_bytes, packed_bytes, dep_depth) = if idx < SEED_REPOS.len() {
-            let (n, r, p, d) = SEED_REPOS[idx];
-            (String::from(n), r, p, d)
-        } else {
-            let r = 4096u64 + ((idx as u64) * 256);
-            let p = 1024u64 + ((idx as u64) * 64);
-            let d = 4 + ((idx as u32) % 6);
-            (format!("8b-is-module-{idx:03}"), r, p, d)
+        let (name, raw_bytes, packed_bytes, dep_depth) = match SEED_REPOS.get(idx) {
+            Some(&(n, r, p, d)) => (String::from(n), r, p, d),
+            None => {
+                let r = 4096u64 + ((idx as u64) * 256);
+                let p = 1024u64 + ((idx as u64) * 64);
+                let d = 4 + ((idx as u32) % 6);
+                (format!("8b-is-module-{idx:03}"), r, p, d)
+            }
         };
         let density = RationalPQ::reduce(raw_bytes, packed_bytes);
         let fold_hash = xor_fold(name.as_bytes())
@@ -134,7 +134,7 @@ pub fn consolidate_top_100() -> BeehiveConsolidation {
             covers: alloc::vec![id],
         });
         // Advance to next 4096B window boundary
-        let windows = (repo.packed_bytes + 4095) / 4096;
+        let windows = repo.packed_bytes.div_ceil(4096);
         current_addr += windows.max(1) * 4096;
     }
 
@@ -280,6 +280,7 @@ pub struct WigleDataBombCell {
 /// Evaluate a passive ESP32-S3 / WiGLE observation under the `DataBomb v3.0` Custodian Principle
 /// (`Record != Admit != Commit`), verify movement plausibility via `isqrt_u64`, and seal the
 /// `<~~0o0|v2|...|0o0~~>` 5-stage digest at `407/389` density and `29/30` lossless ratio (`0x62`).
+#[allow(clippy::too_many_arguments)]
 pub fn seal_wigle_databomb_v3_custodian(
     fix_id: u32,
     lat_e7: i32,

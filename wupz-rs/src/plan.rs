@@ -137,10 +137,8 @@ impl LayoutPlan {
     /// when sections are sparse or reordered.
     #[inline]
     pub fn section(&self, id: SectionId) -> Option<&Section> {
-        if let Some(s) = self.sections.get(id.0 as usize) {
-            if s.id == id {
-                return Some(s);
-            }
+        if let Some(s) = self.sections.get(id.0 as usize).filter(|s| s.id == id) {
+            return Some(s);
         }
         self.sections.iter().find(|s| s.id == id)
     }
@@ -150,10 +148,8 @@ impl LayoutPlan {
     /// Fast path: `O(1)` direct array indexing when `self.blocks[index]` matches `index`.
     #[inline]
     pub fn block(&self, index: u32) -> Option<&Block> {
-        if let Some(b) = self.blocks.get(index as usize) {
-            if b.index == index {
-                return Some(b);
-            }
+        if let Some(b) = self.blocks.get(index as usize).filter(|b| b.index == index) {
+            return Some(b);
         }
         self.blocks.iter().find(|b| b.index == index)
     }
