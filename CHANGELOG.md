@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- Golden-vector regression test for `quantize_groupwise_l2_ternary_pq`, pinning
+  the exact integer trits and reduced `p/q` scale for a fixed weight matrix.
+
 ### Fixed
 - Cross-target Cargo builds select the Rust scalar backend instead of linking
   a Zig object compiled for the build host. Native Zig builds are unchanged.

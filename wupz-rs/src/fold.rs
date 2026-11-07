@@ -1005,4 +1005,24 @@ mod tests {
         assert_eq!(lived_wire.ratio_p, 3);
         assert_eq!(lived_wire.ratio_q, 1);
     }
+
+    #[test]
+    fn quantize_groupwise_l2_ternary_pq_golden_vector() {
+        // Golden regression vector pinning the exact integer behaviour of the
+        // zero-float quantizer (review follow-up #1). Any drift in the mean,
+        // threshold, Lloyd-Max refinement, or `p/q` reduction trips this.
+        let weights_q16 = [65536i32, -65536, 2048, 58982, -62259, 0, 61000, -59000];
+        let mut out_trits = [0i8; 8];
+        let scale = quantize_groupwise_l2_ternary_pq(&weights_q16, &mut out_trits);
+        assert_eq!(out_trits, [1, -1, 0, 1, -1, 0, 1, -1]);
+        // alpha = 62052, reduced against Q16 (65536) by gcd 4.
+        assert_eq!(scale, RationalPQ { p: 15513, q: 16384 });
+
+        // Empty input is the identity: no trits, unit ratio.
+        let mut empty = [0i8; 0];
+        assert_eq!(
+            quantize_groupwise_l2_ternary_pq(&[], &mut empty),
+            RationalPQ { p: 0, q: 1 }
+        );
+    }
 }
