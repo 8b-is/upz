@@ -9,6 +9,11 @@ project adheres to [Semantic Versioning](https://semver.org).
 ### Added
 - Golden-vector regression test for `quantize_groupwise_l2_ternary_pq`, pinning
   the exact integer trits and reduced `p/q` scale for a fixed weight matrix.
+- `extras` feature (default on) gating the `upz` superset — CORDIC `atan2`, the
+  group-wise ternary quantizer, PC-relative reloc patching, env-entropy
+  collection, and the 6-register song signals. `--no-default-features
+  --features std` now yields exactly the `wupz-core` surface, and CI verifies
+  both builds. First step of the crate-unification plan.
 
 ### Fixed
 - Cross-target Cargo builds select the Rust scalar backend instead of linking

@@ -29,6 +29,9 @@ jobs:
       - name: rust core
         run: WUPZ_EXPECT_BACKEND=zig-simd cargo test --quiet
 
+      - name: rust core (no extras)
+        run: cargo test --quiet --no-default-features --features std
+
       - name: benchmark comparison contract
         run: bash tests/bench_smoke.sh
 
