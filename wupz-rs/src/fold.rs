@@ -1025,4 +1025,56 @@ mod tests {
             RationalPQ { p: 0, q: 1 }
         );
     }
+
+    /// Faithful `f64` port of `MLX-QUANT`'s `quantize_ternary_optimal_groupwise`
+    /// (`armillary_sphere_tensor.py`), used as the cross-language reference.
+    fn mlx_quant_optimal_groupwise_f64(w: &[f64], threshold_factor: f64, steps: usize) -> Vec<i8> {
+        let n = w.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        let abs: Vec<f64> = w.iter().map(|x| x.abs()).collect();
+        let group_mean = abs.iter().sum::<f64>() / n as f64 + 1e-8;
+        let mut tau = threshold_factor * group_mean;
+        let mut alpha = {
+            let active: Vec<f64> = abs.iter().map(|&a| if a > tau { a } else { 0.0 }).collect();
+            let count = abs.iter().filter(|&&a| a > tau).count().max(1) as f64;
+            active.iter().sum::<f64>() / count
+        };
+        for _ in 0..steps {
+            tau = 0.5 * alpha;
+            let count = abs.iter().filter(|&&a| a > tau).count().max(1) as f64;
+            let sum: f64 = abs.iter().filter(|&&a| a > tau).sum();
+            alpha = sum / count;
+        }
+        w.iter()
+            .zip(&abs)
+            .map(|(&x, &a)| {
+                if a > tau {
+                    if x > 0.0 { 1 } else { -1 }
+                } else {
+                    0
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn quantizer_matches_mlx_quant_float_reference() {
+        // Cross-language witness (review follow-up #1): the zero-float integer
+        // path must reproduce the trits of MLX-QUANT's float algorithm on the
+        // same weights. Weights are Q16, so divide by 65536 to get the float
+        // domain MLX-QUANT operates in.
+        let weights_q16 = [65536i32, -65536, 2048, 58982, -62259, 0, 61000, -59000];
+        let weights_f64: Vec<f64> = weights_q16.iter().map(|&v| v as f64 / 65536.0).collect();
+
+        let mut int_trits = [0i8; 8];
+        quantize_groupwise_l2_ternary_pq(&weights_q16, &mut int_trits);
+
+        // MLX-QUANT default: threshold_factor 0.68, 2 refinement steps.
+        let float_trits = mlx_quant_optimal_groupwise_f64(&weights_f64, 0.68, 2);
+
+        assert_eq!(int_trits.to_vec(), float_trits);
+        assert_eq!(float_trits, vec![1, -1, 0, 1, -1, 0, 1, -1]);
+    }
 }
